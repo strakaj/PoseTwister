@@ -1,3 +1,7 @@
+from dataclasses import dataclass
+import numpy as np
+
+
 class PredictionResult:
     def __init__(self, seg_prediction, pose_prediction):
         self._pose = pose_prediction
@@ -18,3 +22,17 @@ class PredictionResult:
     def export_to_json(self):
         # TODO: implement
         pass
+
+
+@dataclass
+class Pose:
+    boxes: np.ndarray
+    keypoints: np.ndarray
+    conf: np.ndarray
+
+
+@dataclass
+class Segmentation:
+    boxes: np.ndarray
+    masks: np.ndarray
+    conf: np.ndarray

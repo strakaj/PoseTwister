@@ -1,12 +1,12 @@
-from typing import Union, List
-from posetwister.utils import load_image, load_video
-from posetwister.visualization import add_rectangles, add_keypoints
-from posetwister.representation import PredictionResult
 import os
-import numpy as np
-import cv2
-import matplotlib.pyplot as plt
 import time
+from typing import Union, List
+
+import cv2
+import numpy as np
+
+from posetwister.representation import PredictionResult
+from posetwister.utils import load_image, load_video
 
 
 class DefaultImagePredictor:
@@ -43,9 +43,9 @@ class DefaultVideoPredictor:
         self.running_variables = [self.prediction_times, self.predictions]
         self.max_var_in_memory = 12
 
-    def reset_running_variable(self, max):
+    def reset_running_variable(self, max_in_memory):
         for v in self.running_variables:
-            if len(v) > max:
+            if len(v) > max_in_memory:
                 v = []
 
     def predict(self, video: str):

@@ -58,7 +58,7 @@ if __name__ == "__main__":
     yolo_model = YoloModel("yolov8n")
     image_predictor = DefaultImagePredictor(yolo_model)
     if args.image_path is not None:
-        image_predictor.predict(args.image_path)
+        image_predictions = image_predictor.predict(args.image_path)
 
     video_predictor = VideoPredictor(yolo_model)
     if args.video_path is not None:

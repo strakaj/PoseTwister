@@ -4,7 +4,7 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from ultralytics import YOLO
 
-from posetwister.representation import PredictionResult
+from posetwister.representation import PredictionResult, Pose, Segmentation
 from posetwister.utils import load_image, get_iou_mat
 from posetwister.visualization import add_rectangles, add_keypoints
 
@@ -58,18 +58,18 @@ class YoloModel:
         seg_ind = seg_ind[idx_to_keep]
         pose_ind = pose_ind[idx_to_keep]
 
-        pose = {
-            "boxes": pose_boxes[pose_ind],
-            "keypoints": pose_prediction.keypoints.xy.cpu().numpy()[pose_ind],
-            "conf": pose_prediction.keypoints.conf.cpu().numpy()[pose_ind],
-        }
+        pose = Pose(
+            boxes=pose_boxes[pose_ind],
+            keypoints=pose_prediction.keypoints.xy.cpu().numpy()[pose_ind],
+            conf=pose_prediction.keypoints.conf.cpu().numpy()[pose_ind]
+        )
 
-        segmentation = {
-            "boxes": seg_boxes[seg_ind],
-            "masks": np.array([cv2.resize(msk, seg_prediction.masks.orig_shape[::-1]) for msk in
-                               seg_prediction.masks.data.cpu().numpy()[seg_ind]]),
-            "conf": seg_prediction.boxes.conf.cpu().numpy()[seg_ind]
-        }
+        segmentation = Segmentation(
+            boxes=seg_boxes[seg_ind],
+            masks=np.array([cv2.resize(msk, seg_prediction.masks.orig_shape[::-1]) for msk in
+                            seg_prediction.masks.data.cpu().numpy()[seg_ind]]),
+            conf=seg_prediction.boxes.conf.cpu().numpy()[seg_ind]
+        )
 
         return segmentation, pose
 

@@ -16,7 +16,7 @@ def get_parameters(image_size):
     radius = 9
     font = cv2.FONT_HERSHEY_COMPLEX
     line = cv2.LINE_AA
-    if iw * ih <= 640 * 320:
+    if iw * ih <= 640 * 360:
         scale = 0.8
     elif iw * ih <= 720*480:
         scale = 1
@@ -30,8 +30,8 @@ def get_parameters(image_size):
 
 
 def add_rectangles(image, prediction_result, color=None, add_conf=False):
-    boxes = prediction_result["boxes"]
-    conf = prediction_result["conf"]
+    boxes = prediction_result.boxes
+    conf = prediction_result.conf
 
     colors = np.array([cm.tab20(i / len(boxes)) for i in range(len(boxes))]) * 255
     param = get_parameters(image.shape)
@@ -56,10 +56,10 @@ def add_rectangles(image, prediction_result, color=None, add_conf=False):
 
 
 def add_keypoints(image, prediction_result):
-    keypoints = prediction_result["keypoints"]
+    keypoints = prediction_result.keypoints
     param = get_parameters(image.shape)
 
-    colors = np.array([plt.cm.tab20((i) / len(KEYPOINT_NAMES)) for i in range(len(KEYPOINT_NAMES))]) * 255
+    colors = np.array([plt.cm.tab20(i / len(KEYPOINT_NAMES)) for i in range(len(KEYPOINT_NAMES))]) * 255
 
     for i, kps in enumerate(keypoints):
         for j, kp in enumerate(kps):
@@ -70,7 +70,7 @@ def add_keypoints(image, prediction_result):
 
 
 def add_masks(image, prediction_result, backround_type=1):
-    masks = prediction_result["masks"]
+    masks = prediction_result.masks
     size = image.shape
 
     if backround_type == 1:
