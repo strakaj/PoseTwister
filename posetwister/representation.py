@@ -4,16 +4,16 @@ from copy import deepcopy
 
 @dataclass
 class Pose:
-    boxes: np.ndarray
-    keypoints: np.ndarray
-    conf: np.ndarray
+    boxes: np.ndarray = None
+    keypoints: np.ndarray = None
+    conf: np.ndarray = None
 
 
 @dataclass
 class Segmentation:
-    boxes: np.ndarray
-    masks: np.ndarray
-    conf: np.ndarray
+    boxes: np.ndarray = None
+    masks: np.ndarray = None
+    conf: np.ndarray = None
 
 class PredictionResult:
     def __init__(self, seg_prediction: Segmentation, pose_prediction: Pose):
@@ -27,6 +27,24 @@ class PredictionResult:
     @property
     def segmentation(self):
         return self._segmentation
+
+    @pose.setter
+    def pose(self, new_pose: Pose):
+        if new_pose.boxes is not None:
+            self._pose.boxes = new_pose.boxes
+        if new_pose.conf is not None:
+            self._pose.conf = new_pose.conf
+        if new_pose.keypoints is not None:
+            self._pose.keypoints = new_pose.keypoints
+
+    @segmentation.setter
+    def segmentation(self, new_segmentation: Segmentation):
+        if new_segmentation.boxes is not None:
+            self._segmentation.boxes = new_segmentation.boxes
+        if new_segmentation.conf is not None:
+            self._segmentation.conf = new_segmentation.conf
+        if new_segmentation.masks is not None:
+            self._segmentation.masks = new_segmentation.keypoints
 
     @property
     def result(self):

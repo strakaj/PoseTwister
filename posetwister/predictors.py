@@ -18,12 +18,10 @@ class DefaultImagePredictor:
         iamges = []
         for p in images_paths:
             if not os.path.isfile(p):
-                Exception(f"{p} is not a file.")
-                continue
+                raise Exception(f"{p} is not a file.")
             image = load_image(p)
             if image is None:
-                Exception(f"Could not load image from {p}.")
-                continue
+                raise Exception(f"Could not load image from {p}.")
             iamges.append(image)
         predictions = self.predict_image(images)
         return predictions
@@ -52,7 +50,7 @@ class DefaultVideoPredictor:
         self.reset_running_variable(0)
 
         if not os.path.isfile(video):
-            Exception(f"{video} is not a file.")
+            raise Exception(f"{video} is not a file.")
         out_path = video.replace("input", "output")
         out_path = out_path.split(".")[0] + '.avi'
         if not os.path.isdir(os.path.dirname(out_path)):
@@ -64,7 +62,7 @@ class DefaultVideoPredictor:
         video_out = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*'XVID'), 24.0, (width, height))
 
         if video_stream is None:
-            Exception(f"Could not load image from {video}.")
+            raise Exception(f"Could not load image from {video}.")
 
         while (video_stream.isOpened()):
             self.reset_running_variable(self.max_var_in_memory)

@@ -11,8 +11,7 @@ def load_video(path, get_images=False, max_images=0):
     stream = cv2.VideoCapture(path)
 
     if not stream.isOpened():
-        Exception("Error opening video stream or file")
-        return None
+        raise Exception("Error opening video stream or file")
 
     if not get_images:
         return stream
@@ -35,13 +34,13 @@ def load_video(path, get_images=False, max_images=0):
 
 def iou(box1, box2):
     # determine the (x, y)-coordinates of the intersection rectangle
-    xA = np.max([box1[0], box2[0]])
-    yA = np.max([box1[1], box2[1]])
-    xB = np.min([box1[2], box2[2]])
-    yB = np.min([box1[3], box2[3]])
+    x0 = np.max([box1[0], box2[0]])
+    y0 = np.max([box1[1], box2[1]])
+    x1 = np.min([box1[2], box2[2]])
+    y1 = np.min([box1[3], box2[3]])
 
     # compute the area of intersection rectangle
-    inter_area = np.abs(np.max((xB - xA, 0)) * np.max((yB - yA, 0)))
+    inter_area = np.abs(np.max((x1 - x0, 0)) * np.max((y1 - y0, 0)))
     if inter_area == 0:
         return 0
     # compute the area of both the prediction and ground-truth
