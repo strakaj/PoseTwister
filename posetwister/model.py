@@ -76,8 +76,8 @@ class YoloModel:
 
 if __name__ == "__main__":
     yolo_model = YoloModel("yolov8x")
-    image = [load_image("../data/input/image/car.jpg"),
-             load_image("../data/input/image/t_pose-0.jpg"),
+    image = [#load_image("../data/input/image/car.jpg"),
+             #load_image("../data/input/image/t_pose-0.jpg"),
              load_image("../data/input/image/ymca-0.jpg")]
     predictions = yolo_model.predict(image)
 

@@ -23,30 +23,51 @@ class VideoPredictor(DefaultVideoPredictor):
     def filter_predictions(self):
         pass
 
-    def select_top_prediction(self):
-        pass
+    def select_top_prediction(self, frame, prediction, debug_centers = False):
+        image_center = np.array(frame.shape[:2]) / 2
+        if debug_centers:
+            cv2.circle(frame, (int(image_center[1]), int(image_center[0])), radius=10, color=[255,0,0], thickness=-1)
+
+        boxes = prediction.segmentation.boxes
+        conf = prediction.segmentation.conf
+
+        distance_to_center = []
+        for b in boxes:
+            x0, y0, x1, y1 = b
+            box_center = np.array([y0 + (y1 - y0)/2, x0 + (x1 - x0)/2])
+            dist = np.linalg.norm(image_center - box_center)
+            distance_to_center.append(dist)
+            if debug_centers:
+                cv2.circle(frame, (int(box_center[1]), int(box_center[0])), radius=10, color=[0, 255, 0], thickness=-1)
+
+        score = [c/d for c, d in zip(conf, distance_to_center)]
+        top_box_idx = np.argmax(score)
+        prediction.keep_by_idx([top_box_idx])
+
+    def add_frame_rate(self, frame, mov_avg=12):
+        param = get_parameters(frame.shape)
+
+        time = self.prediction_times[-1]
+        if len(self.prediction_times) >= mov_avg:
+            time = self.prediction_times[-mov_avg::]
+            time = np.mean(time)
+            self.prediction_times.pop(0)
+
+        fps = np.round(1 / time, 1)
+        size, _ = cv2.getTextSize(str(fps), param["font"], param["font_scale"] + 1, param["thickness"])
+        frame = cv2.putText(frame, str(fps), (20, size[1] + 20), param["font"],
+                            param["font_scale"] + 1, [255, 255, 255], param["thickness"], param["line"])
+        return frame
 
     def after_prediction(self, frame, prediction):
 
         if prediction is not None:
+            self.select_top_prediction(frame, prediction)
             frame = add_rectangles(frame, prediction.segmentation, add_conf=True)
             frame = add_keypoints(frame, prediction.pose)
 
         if self.prediction_times:
-            param = get_parameters(frame.shape)
-            mov_avg_n = 12
-
-            time = self.prediction_times[-1]
-            if len(self.prediction_times) >= mov_avg_n:
-                time = self.prediction_times[-mov_avg_n::]
-                time = np.mean(time)
-                self.prediction_times.pop(0)
-
-            fps = np.round(1 / time, 1)
-
-            size, _ = cv2.getTextSize(str(fps), param["font"], param["font_scale"] + 1, param["thickness"])
-            frame = cv2.putText(frame, str(fps), (20, size[1] + 20), param["font"],
-                                param["font_scale"] + 1, [255, 255, 255], param["thickness"], param["line"])
+            frame = self.add_frame_rate(frame, mov_avg=12)
 
         return frame
 
