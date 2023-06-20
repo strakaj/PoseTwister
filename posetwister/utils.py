@@ -1,11 +1,25 @@
 import cv2
 import time
+import json
 import numpy as np
+
+
+def save_json(data, path):
+    with open(path, "w") as f:
+        json.dump(data, f, indent=4)
+
+
+def load_json(path):
+    with open(path, "r") as f:
+        data = json.load(f)
+    return data
+
 
 
 def load_image(path):
     image = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
     return image
+
 
 def load_video(path, get_images=False, max_images=0):
     stream = cv2.VideoCapture(path)

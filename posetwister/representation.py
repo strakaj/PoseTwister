@@ -8,6 +8,14 @@ class Pose:
     keypoints: np.ndarray = None
     conf: np.ndarray = None
 
+    def export(self):
+        data = {
+            "boxes": self.boxes.tolist(),
+            "keypoints": self.keypoints.tolist(),
+            "conf": self.conf.tolist(),
+        }
+        return data
+
 
 @dataclass
 class Segmentation:
