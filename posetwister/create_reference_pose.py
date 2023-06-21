@@ -25,8 +25,10 @@ if __name__ == "__main__":
 
     for i in range(len(image_predictions)):
         ref_pose = image_predictions[i].pose.export()
+        #TODO: add segmentation
+        pose_representation = {"pose": ref_pose}
         if args.output_path:
             path = args.output_path
             if os.path.isdir(args.output_path):
                 path = os.path.join(path, os.path.basename(args.image_path[i]).split(".")[0] + ".json")
-            save_json(ref_pose, path)
+            save_json(pose_representation, path)

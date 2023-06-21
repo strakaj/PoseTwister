@@ -2,7 +2,7 @@ import cv2
 import time
 import json
 import numpy as np
-
+from posetwister.representation import Pose, PredictionResult
 
 def save_json(data, path):
     with open(path, "w") as f:
@@ -14,7 +14,16 @@ def load_json(path):
         data = json.load(f)
     return data
 
+def representation_form_json(path):
+    data = load_json(path)
+    if "pose" in data:
+        pose = Pose(
+            boxes=data["pose"]["boxes"],
+            keypoints=data["pose"]["keypoints"],
+            conf=data["pose"]["conf"]
+        )
 
+    return PredictionResult(None, pose)
 
 def load_image(path):
     image = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
