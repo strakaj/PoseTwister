@@ -6,7 +6,7 @@ from ultralytics import YOLO
 
 from posetwister.representation import PredictionResult, Pose, Segmentation
 from posetwister.utils import load_image, get_iou_mat
-from posetwister.visualization import add_rectangles, add_keypoints
+from posetwister.visualization import add_rectangles, add_keypoints, add_masks
 
 
 class YoloModel:
@@ -35,7 +35,7 @@ class YoloModel:
         results = []
         for pp, sp in zip(pose_prediction, seg_prediction):
             if len(pp) == 0 or len(sp) == 0:
-                results.append(None)
+                results.append(PredictionResult(Segmentation(), Pose()))
             else:
                 spr, ppr = self.crete_representation(sp, pp)
                 results.append(PredictionResult(spr, ppr))
@@ -64,10 +64,25 @@ class YoloModel:
             conf=pose_prediction.keypoints.conf.cpu().numpy()[pose_ind]
         )
 
+        # crop and resize masks
+        msks = []
+        oh, ow = seg_prediction.masks.orig_shape
+        for msk in  seg_prediction.masks.data.cpu().numpy()[seg_ind]:
+            mh, mw = msk.shape
+            if ow > oh:
+                o_aspect = oh/ow
+                nmh = np.round(o_aspect * mw).astype(int)
+                h_offset = np.round((mh - nmh)/2).astype(int)
+                n_msk = msk[h_offset : (h_offset+nmh), :]
+            else:
+                o_aspect = ow / oh
+                nmw = np.round(o_aspect * mh).astype(int)
+                w_offset = np.round((mw - nmw) / 2).astype(int)
+                n_msk = msk[:, w_offset : (w_offset+nmw)]
+            msks.append(cv2.resize(n_msk, seg_prediction.masks.orig_shape[::-1]))
         segmentation = Segmentation(
             boxes=seg_boxes[seg_ind],
-            masks=np.array([cv2.resize(msk, seg_prediction.masks.orig_shape[::-1]) for msk in
-                            seg_prediction.masks.data.cpu().numpy()[seg_ind]]),
+            masks=np.array(msks),
             conf=seg_prediction.boxes.conf.cpu().numpy()[seg_ind]
         )
 
@@ -75,15 +90,17 @@ class YoloModel:
 
 
 if __name__ == "__main__":
-    yolo_model = YoloModel("yolov8x")
+    yolo_model = YoloModel("yolov8n")
     image = [load_image("../data/input/image/car.jpg"),
              load_image("../data/input/image/t_pose-0.jpg"),
              load_image("../data/input/image/ymca-0.jpg")]
+    #image = [load_image("../data/input/image/ymca-0.jpg")]
     predictions = yolo_model.predict(image)
 
     for img, prd in zip(image, predictions):
         if prd is not None:
             img = add_rectangles(img, prd.segmentation, add_conf=True)
             img = add_keypoints(img, prd.pose)
+            img = add_masks(img, prd.segmentation)
         plt.imshow(img)
         plt.show()
