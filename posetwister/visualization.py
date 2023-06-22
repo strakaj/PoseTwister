@@ -18,15 +18,16 @@ def get_parameters(image_size):
     line = cv2.LINE_AA
     if iw * ih <= 640 * 360:
         scale = 0.8
-    elif iw * ih <= 720*480:
+    elif iw * ih <= 720 * 480:
         scale = 1
-    elif iw * ih <= 1080*720:
+    elif iw * ih <= 1080 * 720:
         scale = 1.2
     elif iw * ih <= 1920 * 1080:
         scale = 1.4
     else:
         scale = 1.6
-    return {"thickness": int(np.ceil(thickness*scale)), "font_scale": font_scale*scale, "radius": int(np.ceil(radius*scale)), "font": font, "line": line}
+    return {"thickness": int(np.ceil(thickness * scale)), "font_scale": font_scale * scale,
+            "radius": int(np.ceil(radius * scale)), "font": font, "line": line}
 
 
 def add_rectangles(image, prediction_result, color=None, add_conf=False):
@@ -69,16 +70,50 @@ def add_keypoints(image, prediction_result):
     return image
 
 
-def add_masks(image, prediction_result, backround_type=1):
+def add_masks(image, prediction_result, color=[255, 0, 0], alpha=0.8):
     masks = prediction_result.masks
     size = image.shape
-
-    if backround_type == 1:
-        background = np.zeros(size)
-    else:
-        pass  # TODO multiple backgrounds
     for mask in masks:
-        mask = mask.astype(np.uint8)
-        image = background + cv2.bitwise_and(image, image, mask=mask)
+        image[mask > 0] = (image[mask > 0] * alpha) + (np.array(color) * (1 - alpha))
 
     return image
+
+
+def get_color_gradient(num_colors=9, key_colors=[[168, 50, 50], [214, 101, 26], [50, 168, 82]], plot=False):
+    num_between = int((num_colors - len(key_colors)) / (len(key_colors) - 1))
+
+    colors = []
+    for i in range(1, len(key_colors)):
+        colors.append(key_colors[i - 1])
+        c1 = key_colors[i - 1]
+        c2 = key_colors[i]
+
+        r = np.round(np.linspace(c1[0], c2[0], num=num_between + 2)).astype(int)[1:-1]
+        g = np.round(np.linspace(c1[1], c2[1], num=num_between + 2)).astype(int)[1:-1]
+        b = np.round(np.linspace(c1[2], c2[2], num=num_between + 2)).astype(int)[1:-1]
+
+        c = list(zip(r, g, b))
+        colors.extend(c)
+    colors.append(key_colors[-1])
+
+    if plot:
+        plt.imshow(np.array([colors]))
+        plt.show()
+
+    return colors
+
+
+if __name__ == "__main__":
+    colors = get_color_gradient(plot=True)
+    n = 9
+    thresholds = (np.linspace(0, 0.75-(1/(n-1)), n))
+    similarity = 0.3
+    idx = 0
+    for i, t in enumerate(thresholds):
+        if t > similarity:
+            break
+        idx = i
+
+    print(thresholds, idx, np.max([i for i, t in enumerate(thresholds) if t < similarity]))
+
+
