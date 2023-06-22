@@ -4,6 +4,7 @@ import json
 import numpy as np
 from posetwister.representation import Pose, PredictionResult
 
+
 def save_json(data, path):
     with open(path, "w") as f:
         json.dump(data, f, indent=4)
@@ -13,6 +14,7 @@ def load_json(path):
     with open(path, "r") as f:
         data = json.load(f)
     return data
+
 
 def representation_form_json(path):
     data = load_json(path)
@@ -24,6 +26,7 @@ def representation_form_json(path):
         )
 
     return PredictionResult(None, pose)
+
 
 def load_image(path):
     image = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)

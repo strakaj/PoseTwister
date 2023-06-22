@@ -1,8 +1,10 @@
 import argparse
 from posetwister.predictors import DefaultImagePredictor, DefaultVideoPredictor
 from posetwister.model import YoloModel
-from posetwister.visualization import add_rectangles, add_keypoints, get_parameters
+from posetwister.visualization import add_rectangles, add_keypoints, get_parameters, add_masks, get_color_gradient
 from posetwister.representation import Pose, Segmentation
+from posetwister.objective import SessionObjective
+from posetwister.utils import representation_form_json
 import cv2
 import numpy as np
 
@@ -20,6 +22,23 @@ def get_args_parser():
 
 
 class VideoPredictor(DefaultVideoPredictor):
+    def __init__(self, model, objective=None):
+        super().__init__(model)
+        self.objective = objective
+        self.objective_score = []
+        self.objective_completed_threshold = 0.75
+        self.num_colors = 21
+        self.colors = get_color_gradient(self.num_colors, plot=True)
+        self.color_thresholds = np.linspace(0.4, self.objective_completed_threshold - (1 / (self.num_colors - 1)), self.num_colors)
+
+        self.colors = [self.colors[0], *self.colors]
+        self.color_thresholds = [0.0, *self.color_thresholds]
+
+    def reset_running_variable(self, max_in_memory):
+        super().reset_running_variable(max_in_memory)
+        if len(self.objective_score) > max_in_memory:
+            self.objective_score = self.objective_score[-max_in_memory::]
+
     def exponential_filtration(self, x0, x1, alpha: float = 0.75):
         x = None
         if x1 is None:
@@ -27,7 +46,7 @@ class VideoPredictor(DefaultVideoPredictor):
         if x0 is None:
             return x1
 
-        x = alpha * x1 + (1 - alpha) * x0
+        x = alpha * x0 + (1 - alpha) * x1
         return x
 
     def filter_box_predictions(self, prediction):
@@ -41,7 +60,7 @@ class VideoPredictor(DefaultVideoPredictor):
 
             segmentation_new = Segmentation(boxes=np.array(boxes_new))
             prediction.segmentation = segmentation_new
-            self.predictions[-2].segmentation = segmentation_new
+            self.predictions[-1].segmentation = segmentation_new
 
     def filter_keypoint_predictions(self, prediction):
         keypoints_new = []
@@ -55,8 +74,7 @@ class VideoPredictor(DefaultVideoPredictor):
 
             pose_new = Pose(keypoints=np.array([keypoints_new]))
             prediction.pose = pose_new
-            self.predictions[-2].pose = pose_new
-
+            self.predictions[-1].pose = pose_new
 
     def select_top_prediction(self, frame, prediction, debug_centers=False):
         image_center = np.array(frame.shape[:2]) / 2
@@ -94,16 +112,35 @@ class VideoPredictor(DefaultVideoPredictor):
                             param["font_scale"] + 1, [255, 255, 255], param["thickness"], param["line"])
         return frame
 
+    def add_similarity(self, frame, text):
+        param = get_parameters(frame.shape)
+        size, _ = cv2.getTextSize(str(text), param["font"], param["font_scale"] + 1, param["thickness"])
+        frame = cv2.putText(frame, str(text), (20, 2 * size[1] + 20 + 10), param["font"],
+                            param["font_scale"] + 1, [255, 255, 255], param["thickness"], param["line"])
+        return frame
+
     def after_prediction(self, frame, prediction):
 
-        if prediction is not None:
+        if len(prediction) > 0:
             self.select_top_prediction(frame, prediction)
-
             self.filter_box_predictions(prediction)
             self.filter_keypoint_predictions(prediction)
 
+            if self.objective is not None:
+                similarity = objective(prediction)
+                if similarity is not None:
+                    self.objective_score.append(similarity)
+                    idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity])
+                    color = self.colors[idx]
+                    frame = add_masks(frame, prediction.segmentation, color, alpha=0.20)
+                    frame = self.add_similarity(frame, f"{similarity:.2f}")
+
             frame = add_rectangles(frame, prediction.segmentation, add_conf=True)
             frame = add_keypoints(frame, prediction.pose)
+
+        else:
+            # if no pose detected, reset previous predictions
+            self.predictions = []
 
         if self.prediction_times:
             frame = self.add_frame_rate(frame, mov_avg=12)
@@ -120,6 +157,13 @@ if __name__ == "__main__":
     if args.image_path is not None:
         image_predictions = image_predictor.predict(args.image_path)
 
-    video_predictor = VideoPredictor(yolo_model)
+    pose0 = representation_form_json("data/ref_poses/y-0.json")
+    pose1 = representation_form_json("data/ref_poses/c-0.json")
+    pose2 = representation_form_json("data/ref_poses/a-0.json")
+    posea = representation_form_json("data/ref_poses/t_pose-2.json")
+
+    objective = SessionObjective([pose0, pose2], "angle", "end")
+    video_predictor = VideoPredictor(yolo_model, objective)
+    video_predictor.predict(None)
     if args.video_path is not None:
         video_predictor.predict(args.video_path)

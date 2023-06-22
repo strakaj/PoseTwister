@@ -48,10 +48,19 @@ def get_angles(reference_keypoints):
     angle_rhip = angle(vect_right_knee, vect_body)
     angle_rkne = angle(vect_right_ankle, vect_right_knee)
     angles = [angle_lsh, angle_rsh, angle_lelb, angle_relb, angle_lhip, angle_rhip, angle_lkne, angle_rkne]
+    angles = [angle_lsh, angle_rsh, angle_lelb, angle_relb, angle_lhip, angle_rhip]
     return angles
 
 
 def compare_pose_angels(pose1: Pose, pose2: Pose) -> float:
     ref_angles = get_angles(pose1.keypoints[0])
     cand_angles = get_angles(pose2.keypoints[0])
-    return np.sum(np.abs([n - m for (n, m) in zip(ref_angles, cand_angles)]))
+
+    sim = []
+    for (n, m) in zip(ref_angles, cand_angles):
+        if n < m:
+            sim.append(n/m)
+        else:
+            sim.append(m/n)
+
+    return np.mean(sim)  #np.sum(np.abs([n - m for (n, m) in zip(ref_angles, cand_angles)]))

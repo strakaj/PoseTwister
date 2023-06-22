@@ -8,6 +8,19 @@ class Pose:
     keypoints: np.ndarray = None
     conf: np.ndarray = None
 
+    def is_empty(self):
+        if self.boxes is None or self.keypoints is None or self.conf is None:
+            return True
+        return False
+
+    def __len__(self):
+        if self.is_empty():
+            return -1
+        if len(self.boxes) == len(self.keypoints) == len(self.conf):
+            return len(self.boxes)
+        else:
+            return -1
+
     def export(self):
         data = {
             "boxes": self.boxes.tolist(),
@@ -17,11 +30,26 @@ class Pose:
         return data
 
 
+
 @dataclass
 class Segmentation:
     boxes: np.ndarray = None
     masks: np.ndarray = None
     conf: np.ndarray = None
+
+    def is_empty(self):
+        if self.boxes is None or self.masks is None or self.conf is None:
+            return True
+        return False
+
+    def __len__(self):
+        if self.is_empty():
+            return -1
+        if len(self.boxes) == len(self.masks) == len(self.conf):
+            return len(self.boxes)
+        else:
+            return -1
+
 
 class PredictionResult:
     def __init__(self, seg_prediction: Segmentation, pose_prediction: Pose):
@@ -58,6 +86,25 @@ class PredictionResult:
     def result(self):
         return {"pose": self._pose, "segmentation": self._segmentation}
 
+    @property
+    def is_consistent(self):
+        if self._pose.is_empty() or self._segmentation.is_empty():
+            return False
+        lp = len(self._pose)
+        ls = len(self._segmentation)
+        if lp <= 0 or ls <= 0:
+            return False
+        if lp != ls:
+            return False
+
+        return True
+
+    def __len__(self):
+        if self.is_consistent:
+            return len(self._pose)
+        return 0
+
+
     def keep_by_idx(self, indexes: list):
         self._pose.boxes = self._pose.boxes[indexes]
         self._pose.keypoints = self._pose.keypoints[indexes]
@@ -69,9 +116,9 @@ class PredictionResult:
 
     def select_by_index(self, indexes: list):
         selected_pose = Pose(
-            boxes = deepcopy(self._pose.boxes[indexes]),
-            keypoints = deepcopy(self._pose.keypoints[indexes]),
-            conf = deepcopy(self._pose.conf[indexes]),
+            boxes=deepcopy(self._pose.boxes[indexes]),
+            keypoints=deepcopy(self._pose.keypoints[indexes]),
+            conf=deepcopy(self._pose.conf[indexes]),
         )
         selected_segmentation = Pose(
             boxes=deepcopy(self._segmentation.boxes[indexes]),
@@ -80,6 +127,6 @@ class PredictionResult:
         )
         return PredictionResult(selected_segmentation, selected_pose)
 
-    def export_to_json(self):
+    def export(self):
         # TODO: implement
         pass
