@@ -90,6 +90,23 @@ def get_iou_mat(bb0, bb1):
     return iou_mat
 
 
+def exponential_filtration(x0, x1, alpha: float = 0.75):
+    x = None
+    if x1 is None:
+        return x
+    if x0 is None:
+        return x1
+
+    x = alpha * x0 + (1 - alpha) * x1
+    return x
+
+
+def reset_running_variable(variable, max_in_memory):
+    if len(variable) > max_in_memory:
+        variable = variable[-max_in_memory::]
+    return variable
+
+
 class Timer:
     def __init__(self, message=""):
         self.message = message if message else "Code"

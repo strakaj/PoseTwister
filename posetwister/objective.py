@@ -1,11 +1,11 @@
 from posetwister.representation import PredictionResult
 from posetwister.comparison import compare_pose_angels
 from typing import Union, List
-from posetwister.utils import representation_form_json
+from posetwister.utils import representation_form_json,reset_running_variable, exponential_filtration
 
 class SessionObjective:
     def __init__(self, target: Union[PredictionResult, List[PredictionResult]], comparison_method: str,
-                 after_complete: str, threshold: float = 0.75):
+                 after_complete: str, threshold: float = 0.75, in_row: int = 0):
         """
         :param target:
         :param comparison_method: ('angle')
@@ -21,6 +21,13 @@ class SessionObjective:
         self.comparison_method = comparison_method
         self.after_complete = after_complete
         self.threshold = threshold
+
+        self.objective_in_row = in_row
+        self.state_in_row = 0
+
+        self.alpha = 0.9
+        self.max_in_memory = 12
+        self.similarities = []
 
     def is_complete(self):
         if len(self.target) == self.progress + 1:
@@ -50,12 +57,27 @@ class SessionObjective:
         if self.comparison_method == "angle":
             similarity = self._compare_angels(ref_representation, prediction)
 
+        if similarity is not None:
+            if len(self.similarities) > 0:
+                similarity = exponential_filtration(self.similarities[-1], similarity, self.alpha)
+            self.similarities.append(similarity)
+            self.similarities = reset_running_variable(self.similarities, self.max_in_memory)
+
         if similarity is not None and self._check_similarity(similarity):
-            print(f" Pose completed {similarity:0.2f}")
-            self.progress += 1
+            self.state_in_row += 1
+            print(f"Pose {self.progress+1}: {self.state_in_row}/{self.objective_in_row}")
+            if self.state_in_row >= self.objective_in_row:
+                print(f" Pose {self.progress+1} completed: {similarity:0.2f}")
+                self.progress += 1
+                self.similarities = []
+                self.state_in_row = 0
+
+        else:
+            self.similarities = []
+            self.state_in_row = 0
 
         if self.is_complete():
-            print("Objective completed!")
+            print("     Objective completed!")
 
         return similarity
 
