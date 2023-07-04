@@ -1,6 +1,7 @@
 import os
 import time
-from typing import Union, List
+from datetime import datetime
+from typing import Union, List, Optional
 
 import cv2
 import numpy as np
@@ -47,32 +48,30 @@ class DefaultVideoPredictor:
             self.predictions = self.predictions[-max_in_memory::]
 
 
-    def predict(self, video: str):
+    def predict(self, source: Union[str, int], output_path: Optional[str] = None):
         self.reset_running_variable(0)
 
-        source = 1
-        if video is None:
-            source = 0
+        if isinstance(source, str) and not os.path.isfile(source):
+            raise Exception(f"{source} is not a file.")
 
-        if source and not os.path.isfile(video):
-            raise Exception(f"{video} is not a file.")
-        if source:
-            out_path = video.replace("input", "output")
-            out_path = out_path.split(".")[0] + '.avi'
-            if not os.path.isdir(os.path.dirname(out_path)):
-                os.makedirs(os.path.dirname(out_path))
+        if output_path is not None:
+            if "." in os.path.basename(output_path):
+                output_path = output_path.split(".")[0] + '.avi'
+            else:
+                timestamp = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+                output_path = os.path.join(os.path.join(output_path, f"out_{timestamp}.avi"))
+            if not os.path.isdir(os.path.dirname(output_path)):
+                os.makedirs(os.path.dirname(output_path))
 
-        if source:
-            video_stream = load_video(video)
-        else:
-            video_stream = load_video(source)
+        video_stream = load_video(source)
         width = int(video_stream.get(3))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_WIDTH) + 0.5)
         height = int(video_stream.get(4))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_HEIGHT) + 0.5)
-        if source:
-            video_out = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*'XVID'), 24.0, (width, height))
+
+        if output_path is not None:
+            video_out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), 24.0, (width, height))
 
         if video_stream is None:
-            raise Exception(f"Could not load image from {video}.")
+            raise Exception(f"Could not load image from {source}.")
 
         while (video_stream.isOpened()):
             self.reset_running_variable(self.max_var_in_memory)
@@ -90,7 +89,7 @@ class DefaultVideoPredictor:
             self.predictions.append(predictions)
 
             frame = self.after_prediction(frame, predictions)
-            if source:
+            if output_path is not None:
                 video_out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
             else:
                 cv2.imshow('frame', frame[:,:,::-1])
@@ -98,7 +97,7 @@ class DefaultVideoPredictor:
                     break
 
         video_stream.release()
-        if source:
+        if output_path is not None:
             video_out.release()
 
     def after_prediction(self, frame: np.ndarray, prediction: PredictionResult) -> np.ndarray:

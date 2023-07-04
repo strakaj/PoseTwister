@@ -1,10 +1,12 @@
 import argparse
+import os.path
+
 from posetwister.predictors import DefaultImagePredictor, DefaultVideoPredictor
 from posetwister.model import YoloModel
 from posetwister.visualization import add_rectangles, add_keypoints, get_parameters, add_masks, get_color_gradient
 from posetwister.representation import Pose, Segmentation
 from posetwister.objective import SessionObjective
-from posetwister.utils import representation_form_json
+from posetwister.utils import representation_form_json, exponential_filtration
 import cv2
 import numpy as np
 
@@ -28,7 +30,7 @@ class VideoPredictor(DefaultVideoPredictor):
         self.objective_score = []
         self.objective_completed_threshold = 0.75
         self.num_colors = 21
-        self.colors = get_color_gradient(self.num_colors, plot=True)
+        self.colors = get_color_gradient(self.num_colors, plot=False)
         self.color_thresholds = np.linspace(0.4, self.objective_completed_threshold - (1 / (self.num_colors - 1)), self.num_colors)
 
         self.colors = [self.colors[0], *self.colors]
@@ -39,23 +41,13 @@ class VideoPredictor(DefaultVideoPredictor):
         if len(self.objective_score) > max_in_memory:
             self.objective_score = self.objective_score[-max_in_memory::]
 
-    def exponential_filtration(self, x0, x1, alpha: float = 0.75):
-        x = None
-        if x1 is None:
-            return x
-        if x0 is None:
-            return x1
-
-        x = alpha * x0 + (1 - alpha) * x1
-        return x
-
     def filter_box_predictions(self, prediction):
         boxes_new = []
         if len(self.predictions) > 1:
             boxes0 = self.predictions[-2].segmentation.boxes
             boxes1 = prediction.segmentation.boxes
             for box0, box1 in zip(boxes0, boxes1):
-                box_new = [self.exponential_filtration(x0, x1) for x0, x1 in zip(box0, box1)]
+                box_new = [exponential_filtration(x0, x1) for x0, x1 in zip(box0, box1)]
                 boxes_new.append(box_new)
 
             segmentation_new = Segmentation(boxes=np.array(boxes_new))
@@ -69,7 +61,7 @@ class VideoPredictor(DefaultVideoPredictor):
             keypoints1_all = prediction.pose.keypoints
             for keypoints0, keypoints1 in zip(keypoints0_all, keypoints1_all):
                 for kp0, kp1 in zip(keypoints0, keypoints1):
-                    kp_new = [self.exponential_filtration(x0, x1) for x0, x1 in zip(kp0, kp1)]
+                    kp_new = [exponential_filtration(x0, x1) for x0, x1 in zip(kp0, kp1)]
                     keypoints_new.append(kp_new)
 
             pose_new = Pose(keypoints=np.array([keypoints_new]))
@@ -145,6 +137,7 @@ class VideoPredictor(DefaultVideoPredictor):
         if self.prediction_times:
             frame = self.add_frame_rate(frame, mov_avg=12)
 
+        #frame = cv2.resize(frame, np.array(frame.shape[:2][::-1]) * 2)
         return frame
 
 
@@ -162,8 +155,12 @@ if __name__ == "__main__":
     pose2 = representation_form_json("data/ref_poses/a-0.json")
     posea = representation_form_json("data/ref_poses/t_pose-2.json")
 
-    objective = SessionObjective([pose0, pose2], "angle", "end")
+    objective = SessionObjective([pose0, pose2], "angle", "end", in_row=30)
     video_predictor = VideoPredictor(yolo_model, objective)
-    video_predictor.predict(None)
+
+    # camera source
+    video_predictor.predict(0)
+
+    # video source
     if args.video_path is not None:
         video_predictor.predict(args.video_path)
