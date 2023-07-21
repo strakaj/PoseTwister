@@ -29,7 +29,8 @@ def representation_form_json(path):
 
 
 def load_image(path):
-    image = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
+    iamge = cv2.imread(path)
+    image = cv2.cvtColor(iamge, cv2.COLOR_BGR2RGB)
     return image
 
 
