@@ -1,12 +1,16 @@
 import argparse
 import os.path
+import time
+
+import matplotlib.pyplot as plt
 
 from posetwister.predictors import DefaultImagePredictor, DefaultVideoPredictor
 from posetwister.model import YoloModel
-from posetwister.visualization import add_rectangles, add_keypoints, get_parameters, add_masks, get_color_gradient
+from posetwister.visualization import add_rectangles, add_keypoints, get_parameters, add_masks, get_color_gradient, \
+    add_keypoint
 from posetwister.representation import Pose, Segmentation
 from posetwister.objective import SessionObjective
-from posetwister.utils import representation_form_json, exponential_filtration
+from posetwister.utils import representation_form_json, exponential_filtration, iou, load_image
 import cv2
 import numpy as np
 
@@ -23,23 +27,43 @@ def get_args_parser():
     return parser
 
 
+def combine_images_side_by_side(image1, image2):
+    # Resize the images to have the same height
+    height = max(image1.shape[0], image2.shape[0])
+    width1, width2 = image1.shape[1], image2.shape[1]
+
+    ratio1 = height / image1.shape[0]
+    ratio2 = height / image2.shape[0]
+
+    image1 = cv2.resize(image1, (int(width1 * ratio1), height))
+    image2 = cv2.resize(image2, (int(width2 * ratio2), height))
+
+    # Combine the images horizontally
+    combined_image = np.hstack((image1, image2))
+
+    return combined_image
+
+
 class VideoPredictor(DefaultVideoPredictor):
     def __init__(self, model, objective=None):
         super().__init__(model)
         self.objective = objective
-        self.objective_score = []
         self.objective_completed_threshold = 0.75
+        self.min_similarity = 0.4
         self.num_colors = 21
-        self.colors = get_color_gradient(self.num_colors, plot=False)
-        self.color_thresholds = np.linspace(0.4, self.objective_completed_threshold - (1 / (self.num_colors - 1)), self.num_colors)
+        self.colors = get_color_gradient(self.num_colors, plot=False,
+                                         key_colors=[[232, 116, 97], [244, 211, 94], [98, 254, 153]])
+        self.color_thresholds = np.linspace(self.min_similarity,
+                                            self.objective_completed_threshold - (1 / (self.num_colors - 1)),
+                                            self.num_colors)
 
         self.colors = [self.colors[0], *self.colors]
         self.color_thresholds = [0.0, *self.color_thresholds]
 
-    def reset_running_variable(self, max_in_memory):
-        super().reset_running_variable(max_in_memory)
-        if len(self.objective_score) > max_in_memory:
-            self.objective_score = self.objective_score[-max_in_memory::]
+        self.completion_frame = None
+        self.completion_timer = 0
+        self.last_frame_time = 0
+        self.show_completion_for_time = 5
 
     def filter_box_predictions(self, prediction):
         boxes_new = []
@@ -89,6 +113,34 @@ class VideoPredictor(DefaultVideoPredictor):
         top_box_idx = np.argmax(score)
         prediction.keep_by_idx([top_box_idx])
 
+    def select_center_prediction(self, frame, prediction, debug_centers=False):
+        fh, fw = frame.shape[:2]
+        bh, bw = fh * 0.9, (fh * 0.9) * 0.666
+        cy, cx = np.array(frame.shape[:2]) / 2
+        center_box = np.array([cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2]).astype(int)
+
+        # if debug_centers:
+        #   cv2.rectangle(frame, center_box[:2], center_box[2:], color=[192,192,192], thickness=2)
+
+        boxes = prediction.pose.boxes
+        conf = prediction.pose.conf
+
+        bious = []
+        for b in boxes:
+            biou = iou(b, center_box)
+            bious.append(biou)
+
+            if debug_centers:
+                b = np.array(b).astype(int)
+                cv2.rectangle(frame, b[:2], b[2:], color=[0, 255, 0], thickness=2)
+                cv2.putText(frame, f"{biou:0.2f}", b[:2], cv2.FONT_HERSHEY_COMPLEX, 1, [255, 255, 255], 2, cv2.LINE_AA)
+
+        score = [b for c, b in zip(conf, bious)]
+        top_box_idx = np.argmax(score)
+        prediction.keep_by_idx([top_box_idx])
+
+        # cv2.rectangle(frame, center_box[:2], center_box[2:], color=[192, 192, 192], thickness=2)
+
     def add_frame_rate(self, frame, mov_avg=12):
         param = get_parameters(frame.shape)
 
@@ -108,27 +160,67 @@ class VideoPredictor(DefaultVideoPredictor):
         param = get_parameters(frame.shape)
         size, _ = cv2.getTextSize(str(text), param["font"], param["font_scale"] + 1, param["thickness"])
         frame = cv2.putText(frame, str(text), (20, 2 * size[1] + 20 + 10), param["font"],
-                            param["font_scale"] + 1, [255, 255, 255], param["thickness"], param["line"])
+                            param["font_scale"], [255, 255, 255], param["thickness"], param["line"])
         return frame
 
     def after_prediction(self, frame, prediction):
 
+        if self.completion_frame is not None:
+            print(self.completion_timer)
+            if self.completion_timer < self.show_completion_for_time:
+                self.completion_timer += (time.time() - self.last_frame_time)
+                self.last_frame_time = time.time()
+                return self.completion_frame
+            else:
+                objective.wait = False
+                self.completion_frame = None
+                self.completion_timer = 0
+
         if len(prediction) > 0:
-            self.select_top_prediction(frame, prediction)
+            # self.select_top_prediction(frame, prediction)
+            self.select_center_prediction(frame, prediction)
             self.filter_box_predictions(prediction)
             self.filter_keypoint_predictions(prediction)
 
             if self.objective is not None:
-                similarity = objective(prediction)
-                if similarity is not None:
-                    self.objective_score.append(similarity)
-                    idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity])
-                    color = self.colors[idx]
-                    frame = add_masks(frame, prediction.segmentation, color, alpha=0.20)
-                    frame = self.add_similarity(frame, f"{similarity:.2f}")
+                similarity, correct_in_row = objective(prediction)
 
-            frame = add_rectangles(frame, prediction.segmentation, add_conf=True)
-            frame = add_keypoints(frame, prediction.pose)
+                # do something if pose was completed
+                if objective.pose_completed:
+                    if objective.pose_image:
+                        objective.wait = True
+                        for kp_id in similarity:
+                            kp = prediction.pose.keypoints[0][kp_id]
+                            idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity[kp_id]])
+                            color = self.colors[idx]
+                            frame = add_keypoint(frame, kp, correct_in_row[kp_id], color)
+
+                        combined_image = combine_images_side_by_side(frame, objective.pose_image[objective.progress])
+                        self.completion_frame = combined_image
+                        frame = combined_image
+                        self.last_frame_time = time.time()
+                        return frame
+
+                # visualize predicted pose
+                if similarity is not None:
+                    if len(similarity) == 1 and -1 in similarity:
+                        similarity = similarity[-1]
+                        idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity])
+                        color = self.colors[idx]
+                        frame = add_masks(frame, prediction.segmentation, color, alpha=0.20)
+                        frame = self.add_similarity(frame, f"{similarity:.2f}")
+                    else:
+                        sim_text = " ".join([f"{s:0.2f}" for k, s in similarity.items()])
+                        for kp_id in similarity:
+                            kp = prediction.pose.keypoints[0][kp_id]
+                            idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity[kp_id]])
+                            color = self.colors[idx]
+                            frame = add_keypoint(frame, kp, correct_in_row[kp_id], color)
+                        frame = self.add_similarity(frame, sim_text)
+
+            if similarity is not None and len(similarity) == 1 and -1 in similarity:
+                frame = add_rectangles(frame, prediction.segmentation, add_conf=True)
+                frame = add_keypoints(frame, prediction.pose)
 
         else:
             # if no pose detected, reset previous predictions
@@ -137,7 +229,7 @@ class VideoPredictor(DefaultVideoPredictor):
         if self.prediction_times:
             frame = self.add_frame_rate(frame, mov_avg=12)
 
-        #frame = cv2.resize(frame, np.array(frame.shape[:2][::-1]) * 2)
+        # frame = cv2.resize(frame, np.array(frame.shape[:2][::-1]) * 2)
         return frame
 
 
@@ -151,11 +243,14 @@ if __name__ == "__main__":
         image_predictions = image_predictor.predict(args.image_path)
 
     pose0 = representation_form_json("data/ref_poses/y-0.json")
-    pose1 = representation_form_json("data/ref_poses/c-0.json")
+    # pose1 = representation_form_json("data/ref_poses/c-0.json")
     pose2 = representation_form_json("data/ref_poses/a-0.json")
-    posea = representation_form_json("data/ref_poses/t_pose-2.json")
+    # posea = representation_form_json("data/ref_poses/t_pose-2.json")
 
-    objective = SessionObjective([pose0, pose2], "angle", "end", in_row=30)
+    pose_images = [load_image("data/input/image/y-0.png"),
+                   load_image("data/input/image/a-0.jpg")]
+
+    objective = SessionObjective([pose0, pose2], "multi_angle", "end", in_row=30, threshold=0.5, pose_image=pose_images)
     video_predictor = VideoPredictor(yolo_model, objective)
 
     # camera source

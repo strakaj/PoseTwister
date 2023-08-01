@@ -3,7 +3,6 @@ import numpy as np
 from posetwister.visualization import KEYPOINT_NAMES
 
 
-
 def angle(vect1, vect2):
     return np.degrees(np.arccos(np.dot(vect1, vect2) / (
             np.linalg.norm(vect1) * np.linalg.norm(vect2))))
@@ -52,15 +51,28 @@ def get_angles(reference_keypoints):
     return angles
 
 
-def compare_pose_angels(pose1: Pose, pose2: Pose) -> float:
+def compare_pose_angels(pose1: Pose, pose2: Pose, get_angle_scores: bool = False) -> dict[int: float]:
+    keypoints_ids = {n: i for i, n in enumerate(KEYPOINT_NAMES)}
+
     ref_angles = get_angles(pose1.keypoints[0])
     cand_angles = get_angles(pose2.keypoints[0])
 
     sim = []
     for (n, m) in zip(ref_angles, cand_angles):
         if n < m:
-            sim.append(n/m)
+            sim.append(n / m)
         else:
-            sim.append(m/n)
+            sim.append(m / n)
 
-    return np.mean(sim)  #np.sum(np.abs([n - m for (n, m) in zip(ref_angles, cand_angles)]))
+    if get_angle_scores:
+        sim = dict(zip(
+            [
+                keypoints_ids['left_shoulder'],
+                keypoints_ids['right_shoulder'],
+                keypoints_ids['left_elbow'],
+                keypoints_ids['right_elbow'],
+                keypoints_ids['left_hip'],
+                keypoints_ids['right_hip']
+            ], sim))
+        return sim
+    return {-1: np.mean(sim)}  # np.sum(np.abs([n - m for (n, m) in zip(ref_angles, cand_angles)]))

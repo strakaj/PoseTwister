@@ -8,6 +8,74 @@ KEYPOINT_NAMES = ["nose", "left_eye", "right_eye", "left_ear", "right_ear", "lef
                   "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle"]
 
 
+def get_alpha(size):
+    h, w = size, size
+
+    # Create radial alpha/transparency layer. 255 in centre, 0 at edge
+    Y = np.linspace(-1, 1, h)[None, :] * 255
+    X = np.linspace(-1, 1, w)[:, None] * 255
+    alpha = np.sqrt(X ** 2 + Y ** 2)
+    alpha = 255 - np.clip(0, 255, alpha)
+    alpha = alpha / 255
+    return np.repeat(alpha[:, :, np.newaxis], 3, axis=2)
+
+
+def add_gradient(image, center, color, radius):
+    x, y = center
+    alpha = get_alpha(radius)
+    h1, w1 = np.ceil(np.array(alpha.shape[:2]) / 2).astype(int)
+    h2, w2 = np.floor(np.array(alpha.shape[:2]) / 2).astype(int)
+    ah0 = 0
+    aw0 = 0
+    ah, aw = alpha.shape[:2]
+
+    ih, iw = image.shape[:2]
+    if y + h2 > ih:
+        dif = y + h2 - ih
+        ah -= dif
+    if y - h1 < 0:
+        ah0 += h1 - y
+
+    if x + w2 > iw:
+        dif = x + w2 - iw
+        aw -= dif
+    if x - w1 < 0:
+        aw0 += w1 - x
+
+    image[np.clip(y - h1, 0, None):y + h2, np.clip(x - w1, 0, None):x + w2] = \
+        (image[np.clip(y - h1, 0, None):y + h2, np.clip(x - w1, 0, None):x + w2] *
+         (1 - alpha[ah0:ah, aw0:aw])) + (np.array(color) * (alpha[ah0:ah, aw0:aw]))
+
+    return image
+
+
+def add_keypoint(image, keypoint, in_row_norm, color):
+    in_row_norm = np.abs(in_row_norm - 1)
+    parameters = {
+        "radius_multiplier": 0.5,
+        "line_multiplier": 0.5,
+        "glow1_size": 8,
+        "glow2_size": 6,
+    }
+
+    param = get_parameters(image.shape)
+    param["radius"] = int(np.ceil(param["radius"] * parameters["radius_multiplier"]))
+    param["thickness"] = int(np.ceil(param["thickness"] * parameters["line_multiplier"]))
+
+    x, y = np.round(keypoint).astype(int)
+
+    if in_row_norm == 0:
+        image = add_gradient(image, [x, y], color, param["radius"] * parameters["glow1_size"])
+        image = add_gradient(image, [x, y], color, param["radius"] * parameters["glow2_size"])
+    image = cv2.circle(image, (x, y), radius=param["radius"], color=color, thickness=-1)
+
+    indicator_circle_radius = np.floor(24 * in_row_norm).astype(int)
+    image = cv2.circle(image, (x, y), radius=indicator_circle_radius, color=color, thickness=param["thickness"])
+
+
+    return image
+
+
 def get_parameters(image_size):
     ih, iw, _ = image_size
 
@@ -88,13 +156,14 @@ def get_color_gradient(num_colors=9, key_colors=[[168, 50, 50], [214, 101, 26], 
         c1 = key_colors[i - 1]
         c2 = key_colors[i]
 
-        r = np.round(np.linspace(c1[0], c2[0], num=num_between + 2)).astype(int)[1:-1]
-        g = np.round(np.linspace(c1[1], c2[1], num=num_between + 2)).astype(int)[1:-1]
-        b = np.round(np.linspace(c1[2], c2[2], num=num_between + 2)).astype(int)[1:-1]
+        r = np.round(np.linspace(c1[0], c2[0], num=num_between + 2))[1:-1]
+        g = np.round(np.linspace(c1[1], c2[1], num=num_between + 2))[1:-1]
+        b = np.round(np.linspace(c1[2], c2[2], num=num_between + 2))[1:-1]
 
         c = list(zip(r, g, b))
         colors.extend(c)
     colors.append(key_colors[-1])
+    colors = [[int(v) for v in c] for c in colors ]
 
     if plot:
         plt.imshow(np.array([colors]))
@@ -106,7 +175,7 @@ def get_color_gradient(num_colors=9, key_colors=[[168, 50, 50], [214, 101, 26], 
 if __name__ == "__main__":
     colors = get_color_gradient(plot=True)
     n = 9
-    thresholds = (np.linspace(0, 0.75-(1/(n-1)), n))
+    thresholds = (np.linspace(0, 0.75 - (1 / (n - 1)), n))
     similarity = 0.3
     idx = 0
     for i, t in enumerate(thresholds):
@@ -115,5 +184,3 @@ if __name__ == "__main__":
         idx = i
 
     print(thresholds, idx, np.max([i for i, t in enumerate(thresholds) if t < similarity]))
-
-
