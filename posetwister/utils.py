@@ -32,7 +32,7 @@ def representation_form_json(path):
             conf=data["pose"]["conf"]
         )
 
-    return PredictionResult(None, pose)
+    return PredictionResult(pose)
 
 
 def load_image(path):

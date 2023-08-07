@@ -3,16 +3,17 @@ import os.path
 import time
 from glob import glob
 
-from posetwister.predictors import DefaultImagePredictor, DefaultVideoPredictor
-from posetwister.model import YoloModel
-from posetwister.visualization import add_rectangles, add_keypoints, get_parameters, add_masks, get_color_gradient, \
-    add_keypoint
-from posetwister.representation import Pose, Segmentation
-from posetwister.objective import SessionObjective
-from posetwister.utils import representation_form_json, exponential_filtration, iou, load_image, load_yaml
-from posetwister.create_reference_pose import create_representation
 import cv2
 import numpy as np
+
+from posetwister.create_reference_pose import create_representation
+from posetwister.model import YoloModel
+from posetwister.objective import SessionObjective
+from posetwister.predictors import DefaultVideoPredictor
+from posetwister.representation import Pose
+from posetwister.utils import representation_form_json, exponential_filtration, iou, load_image, load_yaml
+from posetwister.visualization import add_rectangles, add_keypoints, get_parameters, add_masks, get_color_gradient, \
+    add_keypoint
 
 
 def get_args_parser():
@@ -80,15 +81,15 @@ class VideoPredictor(DefaultVideoPredictor):
     def filter_box_predictions(self, prediction):
         boxes_new = []
         if len(self.predictions) > 1:
-            boxes0 = self.predictions[-2].segmentation.boxes
-            boxes1 = prediction.segmentation.boxes
+            boxes0 = self.predictions[-2].pose.boxes
+            boxes1 = prediction.pose.boxes
             for box0, box1 in zip(boxes0, boxes1):
                 box_new = [exponential_filtration(x0, x1) for x0, x1 in zip(box0, box1)]
                 boxes_new.append(box_new)
 
-            segmentation_new = Segmentation(boxes=np.array(boxes_new))
-            prediction.segmentation = segmentation_new
-            self.predictions[-1].segmentation = segmentation_new
+            pose_new = Pose(boxes=np.array(boxes_new))
+            prediction.pose = pose_new
+            self.predictions[-1].pose = pose_new
 
     def filter_keypoint_predictions(self, prediction):
         keypoints_new = []
@@ -279,6 +280,7 @@ if __name__ == "__main__":
         threshold=config["similarity_threshold"],
         pose_image=pose_images
     )
+
     video_predictor = VideoPredictor(
         yolo_model,
         objective,
@@ -291,4 +293,4 @@ if __name__ == "__main__":
     )
 
     # camera source
-    video_predictor.predict(0)
+    video_predictor.predict(config["video_source"], camera_resolution=config["camera_resolution"])

@@ -5,6 +5,8 @@ ref_pose_model: "yolov8x"
 
 # prediction
 prediction_model: "yolov8n"
+video_source: 0
+camera_resolution: [720, 1080]
 
 # objective
 "comparison_method": "multi_angle"
@@ -18,4 +20,4 @@ prediction_model: "yolov8n"
 "number_of_colors": 21
 "show_result_time": 5
 "key_colors": [[232, 116, 97], [244, 211, 94], [98, 254, 153]]
-"debug_numbers_in_image": False
+"debug_numbers_in_image": True

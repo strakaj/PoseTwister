@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 from posetwister.representation import PredictionResult
-from posetwister.utils import load_image, load_video, reshape_image
+from posetwister.utils import load_image, load_video
 
 
 class DefaultImagePredictor:
@@ -47,8 +47,8 @@ class DefaultVideoPredictor:
         if len(self.predictions) > max_in_memory:
             self.predictions = self.predictions[-max_in_memory::]
 
-
-    def predict(self, source: Union[str, int], output_path: Optional[str] = None):
+    def predict(self, source: Union[str, int], output_path: Optional[str] = None,
+                camera_resolution: List[int] = [720, 1080]):
         self.reset_running_variable(0)
 
         if isinstance(source, str) and not os.path.isfile(source):
@@ -64,6 +64,8 @@ class DefaultVideoPredictor:
                 os.makedirs(os.path.dirname(output_path))
 
         video_stream = load_video(source)
+        video_stream.set(cv2.CAP_PROP_FRAME_WIDTH, camera_resolution[1])
+        video_stream.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_resolution[0])
         width = int(video_stream.get(3))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_WIDTH) + 0.5)
         height = int(video_stream.get(4))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_HEIGHT) + 0.5)
 
@@ -85,7 +87,7 @@ class DefaultVideoPredictor:
                 break
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            #frame = reshape_image(frame, 1080)
+            # frame = reshape_image(frame, 1080)
 
             predictions = self.image_predictor.predict_image(frame)[0]
             toc = time.time()
@@ -96,7 +98,7 @@ class DefaultVideoPredictor:
             if output_path is not None:
                 video_out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
             else:
-                cv2.imshow('frame', frame[:,:,::-1])
+                cv2.imshow('frame', frame[:, :, ::-1])
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 

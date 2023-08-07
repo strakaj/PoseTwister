@@ -72,7 +72,6 @@ def add_keypoint(image, keypoint, in_row_norm, color):
     indicator_circle_radius = np.floor(24 * in_row_norm).astype(int)
     image = cv2.circle(image, (x, y), radius=indicator_circle_radius, color=color, thickness=param["thickness"])
 
-
     return image
 
 
@@ -163,7 +162,7 @@ def get_color_gradient(num_colors=9, key_colors=[[168, 50, 50], [214, 101, 26], 
         c = list(zip(r, g, b))
         colors.extend(c)
     colors.append(key_colors[-1])
-    colors = [[int(v) for v in c] for c in colors ]
+    colors = [[int(v) for v in c] for c in colors]
 
     if plot:
         plt.imshow(np.array([colors]))
