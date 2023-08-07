@@ -8,7 +8,7 @@ import numpy as np
 
 class SessionObjective:
     def __init__(self, target: Union[PredictionResult, List[PredictionResult]], comparison_method: str,
-                 after_complete: str, threshold: float = 0.75, in_row: int = 0, pose_image: List[np.ndarray] = []):
+                 after_complete: str, threshold: float = 0.75, alpha: float = 0.9, in_row: int = 0, pose_image: List[np.ndarray] = []):
         """
         :param target:
         :param comparison_method: ('angle', 'multi_angle')
@@ -29,7 +29,7 @@ class SessionObjective:
         self.objective_in_row = in_row
         self.state_in_row = defaultdict(lambda: 0)
 
-        self.alpha = 0.9
+        self.alpha = alpha
         self.max_in_memory = 12
         self.similarities = defaultdict(list)
 

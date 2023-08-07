@@ -3,8 +3,6 @@ import os.path
 import time
 from glob import glob
 
-import matplotlib.pyplot as plt
-
 from posetwister.predictors import DefaultImagePredictor, DefaultVideoPredictor
 from posetwister.model import YoloModel
 from posetwister.visualization import add_rectangles, add_keypoints, get_parameters, add_masks, get_color_gradient, \
@@ -49,16 +47,24 @@ def combine_images_side_by_side(image1, image2):
 
 
 class VideoPredictor(DefaultVideoPredictor):
-    def __init__(self, model, objective=None):
+    def __init__(self,
+                 model,
+                 objective=None,
+                 num_colors=21,
+                 bot_similarity_threshold=0.4,
+                 top_similarity_threshold=0.75,
+                 show_result_time=5,
+                 key_colors=[[232, 116, 97], [244, 211, 94], [98, 254, 153]],
+                 debug_values=True):
         super().__init__(model)
         self.objective = objective
-        self.objective_completed_threshold = 0.75
-        self.min_similarity = 0.4
-        self.num_colors = 21
+        self.top_similarity_threshold = top_similarity_threshold
+        self.bot_similarity_threshold = bot_similarity_threshold
+        self.num_colors = num_colors
         self.colors = get_color_gradient(self.num_colors, plot=False,
-                                         key_colors=[[232, 116, 97], [244, 211, 94], [98, 254, 153]])
-        self.color_thresholds = np.linspace(self.min_similarity,
-                                            self.objective_completed_threshold - (1 / (self.num_colors - 1)),
+                                         key_colors=key_colors)
+        self.color_thresholds = np.linspace(self.bot_similarity_threshold,
+                                            self.top_similarity_threshold - (1 / (self.num_colors - 1)),
                                             self.num_colors)
 
         self.colors = [self.colors[0], *self.colors]
@@ -67,7 +73,9 @@ class VideoPredictor(DefaultVideoPredictor):
         self.completion_frame = None
         self.completion_timer = 0
         self.last_frame_time = 0
-        self.show_completion_for_time = 5
+        self.show_completion_for_time = show_result_time
+
+        self.debug_values = debug_values
 
     def filter_box_predictions(self, prediction):
         boxes_new = []
@@ -212,7 +220,8 @@ class VideoPredictor(DefaultVideoPredictor):
                         idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity])
                         color = self.colors[idx]
                         frame = add_masks(frame, prediction.segmentation, color, alpha=0.20)
-                        frame = self.add_similarity(frame, f"{similarity:.2f}")
+                        if self.debug_values:
+                            frame = self.add_similarity(frame, f"{similarity:.2f}")
                     else:
                         sim_text = " ".join([f"{s:0.2f}" for k, s in similarity.items()])
                         for kp_id in similarity:
@@ -220,7 +229,8 @@ class VideoPredictor(DefaultVideoPredictor):
                             idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity[kp_id]])
                             color = self.colors[idx]
                             frame = add_keypoint(frame, kp, correct_in_row[kp_id], color)
-                        frame = self.add_similarity(frame, sim_text)
+                        if self.debug_values:
+                            frame = self.add_similarity(frame, sim_text)
 
             if similarity is not None and len(similarity) == 1 and -1 in similarity:
                 frame = add_rectangles(frame, prediction.segmentation, add_conf=True)
@@ -230,7 +240,7 @@ class VideoPredictor(DefaultVideoPredictor):
             # if no pose detected, reset previous predictions
             self.predictions = []
 
-        if self.prediction_times:
+        if self.prediction_times and self.debug_values:
             frame = self.add_frame_rate(frame, mov_avg=12)
 
         # frame = cv2.resize(frame, np.array(frame.shape[:2][::-1]) * 2)
@@ -242,7 +252,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config = load_yaml(args.config_path)
 
-    yolo_model = YoloModel("yolov8n")
+    yolo_model = YoloModel(config["prediction_model"])
 
     # create reference poses
     ref_pose_image_paths = glob(os.path.join(config["ref_pose_input_path"], "*"))
@@ -261,8 +271,24 @@ if __name__ == "__main__":
     pose_images = [load_image(p) for p in image_paths]
 
     # create objective and predictor
-    objective = SessionObjective(ref_poses_representation, "multi_angle", "reset", in_row=30, threshold=0.75, pose_image=pose_images)
-    video_predictor = VideoPredictor(yolo_model, objective)
+    objective = SessionObjective(
+        ref_poses_representation,
+        config["comparison_method"],
+        config["after_complete"],
+        in_row=config["poses_in_row"],
+        threshold=config["similarity_threshold"],
+        pose_image=pose_images
+    )
+    video_predictor = VideoPredictor(
+        yolo_model,
+        objective,
+        num_colors=config["number_of_colors"],
+        bot_similarity_threshold=config["bot_similarity_threshold"],
+        top_similarity_threshold=config["similarity_threshold"],
+        show_result_time=config["show_result_time"],
+        key_colors=config["key_colors"],
+        debug_values=config["debug_numbers_in_image"]
+    )
 
     # camera source
     video_predictor.predict(0)

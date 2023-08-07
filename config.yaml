@@ -1,4 +1,21 @@
+# reference pose generation
 ref_pose_input_path: "data/pose_templates/images"
 ref_pose_output_path: "data/pose_templates/predictions"
 ref_pose_model: "yolov8x"
+
+# prediction
 prediction_model: "yolov8n"
+
+# objective
+"comparison_method": "multi_angle"
+"after_complete": "reset"
+"poses_in_row": 30
+"similarity_threshold": 0.75
+"bot_similarity_threshold": 0.4
+"similarity_smoothing": 0.9
+
+# predictor
+"number_of_colors": 21
+"show_result_time": 5
+"key_colors": [[232, 116, 97], [244, 211, 94], [98, 254, 153]]
+"debug_numbers_in_image": False
