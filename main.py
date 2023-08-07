@@ -202,13 +202,16 @@ class VideoPredictor(DefaultVideoPredictor):
                 if objective.pose_completed:
                     if objective.pose_image:
                         objective.wait = True
+                        pose_image = objective.pose_image[objective.progress]
+                        pose_target = objective.target[objective.progress]
                         for kp_id in similarity:
                             kp = prediction.pose.keypoints[0][kp_id]
                             idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity[kp_id]])
                             color = self.colors[idx]
                             frame = add_keypoint(frame, kp, correct_in_row[kp_id], color)
+                            pose_image = add_keypoint(pose_image, pose_target.pose.keypoints[0][kp_id], 1, self.colors[-1])
 
-                        combined_image = combine_images_side_by_side(frame, objective.pose_image[objective.progress])
+                        combined_image = combine_images_side_by_side(frame, pose_image)
                         self.completion_frame = combined_image
                         frame = combined_image
                         self.last_frame_time = time.time()

@@ -26,7 +26,7 @@ def create_representation(image_path, output_path,  model_name="yolov8n"):
 
         for img_pth in tqdm(image_path, desc="Creating reference poses"):
             image = load_image(img_pth)
-            image = reshape_image(image, 1080)
+            #image = reshape_image(image, 1080)
             image_prediction = image_predictor.predict_image(image)
 
             ref_pose = image_prediction[0].pose.export()
