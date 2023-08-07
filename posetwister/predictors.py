@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 from posetwister.representation import PredictionResult
-from posetwister.utils import load_image, load_video
+from posetwister.utils import load_image, load_video, reshape_image
 
 
 class DefaultImagePredictor:
@@ -73,16 +73,20 @@ class DefaultVideoPredictor:
         if video_stream is None:
             raise Exception(f"Could not load image from {source}.")
 
-        while (video_stream.isOpened()):
+        while video_stream.isOpened():
             self.reset_running_variable(self.max_var_in_memory)
 
             tic = time.time()
 
             ret, frame = video_stream.read()
+            frame = np.fliplr(frame)
+
             if not ret:
                 break
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            #frame = reshape_image(frame, 1080)
+
             predictions = self.image_predictor.predict_image(frame)[0]
             toc = time.time()
             self.prediction_times.append(toc - tic)

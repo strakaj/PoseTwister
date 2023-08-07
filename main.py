@@ -1,6 +1,7 @@
 import argparse
 import os.path
 import time
+from glob import glob
 
 import matplotlib.pyplot as plt
 
@@ -10,7 +11,8 @@ from posetwister.visualization import add_rectangles, add_keypoints, get_paramet
     add_keypoint
 from posetwister.representation import Pose, Segmentation
 from posetwister.objective import SessionObjective
-from posetwister.utils import representation_form_json, exponential_filtration, iou, load_image
+from posetwister.utils import representation_form_json, exponential_filtration, iou, load_image, load_yaml
+from posetwister.create_reference_pose import create_representation
 import cv2
 import numpy as np
 
@@ -20,6 +22,8 @@ def get_args_parser():
     parser.add_argument('--image_path', type=str, nargs='+')
     parser.add_argument('--video_path', type=str)
     parser.add_argument('--use_camera', action='store_true')
+
+    parser.add_argument('--config_path', type=str)
 
     parser.add_argument('--output_path', type=str)
     parser.add_argument('--export_path', type=str)
@@ -139,7 +143,7 @@ class VideoPredictor(DefaultVideoPredictor):
         top_box_idx = np.argmax(score)
         prediction.keep_by_idx([top_box_idx])
 
-        # cv2.rectangle(frame, center_box[:2], center_box[2:], color=[192, 192, 192], thickness=2)
+        cv2.rectangle(frame, center_box[:2], center_box[2:], color=[192, 192, 192], thickness=2)
 
     def add_frame_rate(self, frame, mov_avg=12):
         param = get_parameters(frame.shape)
@@ -236,26 +240,29 @@ class VideoPredictor(DefaultVideoPredictor):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('', parents=[get_args_parser()])
     args = parser.parse_args()
+    config = load_yaml(args.config_path)
 
     yolo_model = YoloModel("yolov8n")
-    image_predictor = DefaultImagePredictor(yolo_model)
-    if args.image_path is not None:
-        image_predictions = image_predictor.predict(args.image_path)
 
-    pose0 = representation_form_json("data/ref_poses/y-0.json")
-    # pose1 = representation_form_json("data/ref_poses/c-0.json")
-    pose2 = representation_form_json("data/ref_poses/a-0.json")
-    # posea = representation_form_json("data/ref_poses/t_pose-2.json")
+    # create reference poses
+    ref_pose_image_paths = glob(os.path.join(config["ref_pose_input_path"], "*"))
+    create_representation(
+        ref_pose_image_paths,
+        config["ref_pose_output_path"],
+        model_name=config["ref_pose_model"]
+    )
 
-    pose_images = [load_image("data/input/image/y-0.png"),
-                   load_image("data/input/image/a-0.jpg")]
+    # load reference poses and corresponding images
+    ref_poses_representation_paths = glob(os.path.join(config["ref_pose_output_path"], "*.json"))
+    ref_poses_representation = [representation_form_json(p) for p in ref_poses_representation_paths]
 
-    objective = SessionObjective([pose0, pose2], "multi_angle", "end", in_row=30, threshold=0.5, pose_image=pose_images)
+    image_names = [os.path.basename(p).split(".")[0] for p in ref_poses_representation_paths]
+    image_paths = [glob(os.path.join(config["ref_pose_input_path"], f"{name}.*"))[0] for name in image_names]
+    pose_images = [load_image(p) for p in image_paths]
+
+    # create objective and predictor
+    objective = SessionObjective(ref_poses_representation, "multi_angle", "reset", in_row=30, threshold=0.75, pose_image=pose_images)
     video_predictor = VideoPredictor(yolo_model, objective)
 
     # camera source
     video_predictor.predict(0)
-
-    # video source
-    if args.video_path is not None:
-        video_predictor.predict(args.video_path)

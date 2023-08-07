@@ -1,0 +1,4 @@
+ref_pose_input_path: "data/pose_templates/images"
+ref_pose_output_path: "data/pose_templates/predictions"
+ref_pose_model: "yolov8x"
+prediction_model: "yolov8n"

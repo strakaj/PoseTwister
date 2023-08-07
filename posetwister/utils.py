@@ -1,6 +1,7 @@
 import cv2
 import time
 import json
+import yaml
 import numpy as np
 from posetwister.representation import Pose, PredictionResult
 
@@ -13,6 +14,12 @@ def save_json(data, path):
 def load_json(path):
     with open(path, "r") as f:
         data = json.load(f)
+    return data
+
+
+def load_yaml(path):
+    with open(path, "r") as f:
+        data = yaml.safe_load(f)
     return data
 
 
@@ -45,7 +52,7 @@ def load_video(path, get_images=False, max_images=0):
 
     frames = []
     frame_i = 0
-    while (stream.isOpened()):
+    while stream.isOpened():
 
         ret, frame = stream.read()
         if ret == True:
@@ -106,6 +113,21 @@ def reset_running_variable(variable, max_in_memory):
     if len(variable) > max_in_memory:
         variable = variable[-max_in_memory::]
     return variable
+
+
+def reshape_image(input_image, new_size=1080) -> np.ndarray:
+    h, w = input_image.shape[:2]
+    if h > w:
+        input_image = cv2.rotate(input_image, cv2.ROTATE_90_CLOCKWISE)
+
+    org_width = input_image.shape[1]
+    new_height = int(np.round((input_image.shape[0] * new_size) / org_width))
+    resized_image = cv2.resize(input_image, (new_size, new_height))
+
+    if h > w:
+        resized_image = cv2.rotate(resized_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+    return resized_image
 
 
 class Timer:
