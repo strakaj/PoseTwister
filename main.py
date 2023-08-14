@@ -47,6 +47,64 @@ def combine_images_side_by_side(image1, image2):
     return combined_image
 
 
+def reshape_width(image, new_width):
+    h, w = image.shape[:2]
+
+    new_height = np.round(new_width / w * h).astype(int)
+
+    image = cv2.resize(image, (new_width, new_height))
+    return image
+
+def reshape_height(image, new_height):
+    h, w = image.shape[:2]
+
+    new_width = np.round(new_height / h * w).astype(int)
+
+    image = cv2.resize(image, (new_width, new_height))
+    return image
+
+
+def combine_images(image1, image2, target_shape):
+    th, tw = target_shape
+    combined = combine_images_side_by_side(image1, image2)
+
+    """
+    h1, w1 = combined.shape[:2]
+    if w1/tw > h1/th:
+        combined_reshaped = reshape_width(combined, tw)
+    else:
+        combined_reshaped = reshape_height(combined, th)
+    """
+
+    combined_reshaped = reshape_width(combined, tw)
+    padet = np.zeros([th, tw, 3]).astype(np.uint8)
+    h, w = combined_reshaped.shape[:2]
+    pad = th - h
+    padet[np.floor(pad / 2).astype(int):np.floor(pad / 2).astype(int) + h, :] = combined_reshaped
+    return padet
+
+
+def crop(image1, image2, bbox):
+    margin = 1.1
+    _, w1 = image1.shape[:2]
+    _, w2 = image2.shape[:2]
+    x0, _, x1, _ = bbox
+    wb = x1 - x0
+    cb = x0 + wb/2
+
+    target_width = (w1 - w2) * margin
+    start = 0
+    end = w1
+    if target_width > wb:
+        start = np.ceil(cb - target_width/2).astype(int)
+        end = np.floor(cb + target_width/2).astype(int)
+    if 0 < target_width <= wb:
+        new_width = wb * margin
+        start = np.ceil(cb - new_width/2).astype(int)
+        end = np.floor(cb + new_width/2).astype(int)
+    return image1[:, start:end, :]
+
+
 class VideoPredictor(DefaultVideoPredictor):
     def __init__(self,
                  model,
@@ -179,7 +237,7 @@ class VideoPredictor(DefaultVideoPredictor):
     def after_prediction(self, frame, prediction):
 
         if self.completion_frame is not None:
-            print(self.completion_timer)
+            # print(self.completion_timer)
             if self.completion_timer < self.show_completion_for_time:
                 self.completion_timer += (time.time() - self.last_frame_time)
                 self.last_frame_time = time.time()
@@ -209,9 +267,11 @@ class VideoPredictor(DefaultVideoPredictor):
                             idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity[kp_id]])
                             color = self.colors[idx]
                             frame = add_keypoint(frame, kp, correct_in_row[kp_id], color)
-                            pose_image = add_keypoint(pose_image, pose_target.pose.keypoints[0][kp_id], 1, self.colors[-1])
-
-                        combined_image = combine_images_side_by_side(frame, pose_image)
+                            pose_image = add_keypoint(pose_image, pose_target.pose.keypoints[0][kp_id], 1,
+                                                      self.colors[-1])
+                        target_shape = frame.shape[:2]
+                        #frame = crop(frame, pose_image, prediction.pose.boxes[0])
+                        combined_image = combine_images(frame, pose_image, target_shape=target_shape) #combine_images_side_by_side(frame, pose_image)
                         self.completion_frame = combined_image
                         frame = combined_image
                         self.last_frame_time = time.time()
@@ -259,12 +319,14 @@ if __name__ == "__main__":
     yolo_model = YoloModel(config["prediction_model"])
 
     # create reference poses
+    """
     ref_pose_image_paths = glob(os.path.join(config["ref_pose_input_path"], "*"))
     create_representation(
         ref_pose_image_paths,
         config["ref_pose_output_path"],
         model_name=config["ref_pose_model"]
     )
+    """
 
     # load reference poses and corresponding images
     ref_poses_representation_paths = glob(os.path.join(config["ref_pose_output_path"], "*.json"))
@@ -281,7 +343,7 @@ if __name__ == "__main__":
         config["after_complete"],
         in_row=config["poses_in_row"],
         threshold=config["similarity_threshold"],
-        pose_image=pose_images
+        # pose_image=pose_images
     )
 
     video_predictor = VideoPredictor(
