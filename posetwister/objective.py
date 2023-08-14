@@ -1,14 +1,18 @@
+import os.path
+
 from posetwister.representation import PredictionResult
 from posetwister.comparison import compare_pose_angels
 from typing import Union, List
-from posetwister.utils import representation_form_json, reset_running_variable, exponential_filtration
+from posetwister.utils import representation_form_json, reset_running_variable, exponential_filtration, load_image
 from collections import defaultdict
 import numpy as np
+from posetwister.visualization import KEYPOINT_NAMES
+
 
 
 class SessionObjective:
     def __init__(self, target: Union[PredictionResult, List[PredictionResult]], comparison_method: str,
-                 after_complete: str, threshold: float = 0.75, alpha: float = 0.9, in_row: int = 0, pose_image: List[np.ndarray] = []):
+                 after_complete: str, threshold: float = 0.75, alpha: float = 0.9, in_row: int = 0):
         """
         :param target:
         :param comparison_method: ('angle', 'multi_angle')
@@ -20,11 +24,14 @@ class SessionObjective:
             self.target_type = "separate"
             target = [target]
         self.target = target
-        self.pose_image = pose_image
+        self.pose_image = [load_image(t.pose.image_path[0]) for t in target]
+        self.pose_name = [os.path.basename(t.pose.image_path[0]).split(".")[0] for t in target]
+        self.keypoint_similarity_threshold = [t.pose.keypoint_similarity_threshold for t in target]
         self.progress = -1
         self.comparison_method = comparison_method
         self.after_complete = after_complete
         self.threshold = threshold
+        self.kp_id_to_name = {i: n for i, n in enumerate(KEYPOINT_NAMES)}
 
         self.objective_in_row = in_row
         self.state_in_row = defaultdict(lambda: 0)
@@ -35,6 +42,8 @@ class SessionObjective:
 
         self._wait = False
         self._pose_completed = False
+
+        print("Start:",  self.pose_name[self.progress+1])
 
     def is_complete(self):
         if len(self.target) == self.progress + 1:
@@ -50,8 +59,11 @@ class SessionObjective:
             similarity = compare_pose_angels(ref.pose, prediction.pose)
         return similarity
 
-    def _check_similarity(self, similarity):
-        if similarity >= self.threshold:
+    def _check_similarity(self, similarity, kp_id):
+        threshold = self.threshold
+        if self.keypoint_similarity_threshold[self.progress+1]:
+            threshold = self.keypoint_similarity_threshold[self.progress][self.kp_id_to_name[kp_id]]
+        if similarity >= threshold:
             return True
         return False
 
@@ -99,9 +111,9 @@ class SessionObjective:
                 self.similarities[kp_id] = reset_running_variable(self.similarities[kp_id], self.max_in_memory)
 
                 # for each keypoint check if prediction is similar enough
-                if self._check_similarity(similarity[kp_id]):
+                if self._check_similarity(similarity[kp_id], kp_id):
                     self.state_in_row[kp_id] = np.clip(self.state_in_row[kp_id] + 1, 0, self.objective_in_row)
-                    print(f"Pose {self.progress + 1} kp {kp_id}: {self.state_in_row[kp_id]}/{self.objective_in_row}")
+                    #print(f"Pose {self.progress + 1} kp {kp_id}: {self.state_in_row[kp_id]}/{self.objective_in_row}")
                 else:
                     # self.similarities[kp_id] = []
                     self.state_in_row[kp_id] = 0
@@ -110,12 +122,17 @@ class SessionObjective:
                                    sir >= self.objective_in_row}
             if len(self.state_in_row) == len(keypoints_completed):
                 sim_text = " ".join([f"kp {k}: {s:0.2f}" for k, s in similarity.items()])
-                print(f" Pose {self.progress + 1} completed: {sim_text}")  #: {similarity:0.2f}
+                print(f"Pose {self.pose_name[self.progress+1]} completed: {sim_text}")  #: {similarity:0.2f}
+                print("-"*100)
                 self.progress += 1
                 self._pose_completed = True
 
-        if self.is_complete():
-            print("     Objective completed!")
+                if self.is_complete():
+                    print("All poses completed!")
+                else:
+                    print("Start:", self.pose_name[self.progress + 1])
+
+
 
         return similarity, {k: v / self.objective_in_row for k, v in self.state_in_row.items()}
 

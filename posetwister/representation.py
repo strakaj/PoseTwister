@@ -9,6 +9,9 @@ class Pose:
     keypoints: np.ndarray = None
     conf: np.ndarray = None
 
+    image_path = None
+    keypoint_similarity_threshold = None
+
     def is_empty(self):
         if self.boxes is None or self.keypoints is None or self.conf is None:
             return True
@@ -27,6 +30,8 @@ class Pose:
             "boxes": self.boxes.tolist(),
             "keypoints": self.keypoints.tolist(),
             "conf": self.conf.tolist(),
+            "image_path": self.image_path,
+            "keypoint_similarity_threshold": self.keypoint_similarity_threshold
         }
         return data
 

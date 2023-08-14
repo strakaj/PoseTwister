@@ -25,12 +25,17 @@ def load_yaml(path):
 
 def representation_form_json(path):
     data = load_json(path)
+    image_path = None if "image_path" not in data["pose"] else data["pose"]["image_path"]
+    keypoint_similarity_threshold = None if "keypoint_similarity_threshold" not in data["pose"] else data["pose"]["keypoint_similarity_threshold"]
+
     if "pose" in data:
         pose = Pose(
             boxes=data["pose"]["boxes"],
             keypoints=data["pose"]["keypoints"],
-            conf=data["pose"]["conf"]
+            conf=data["pose"]["conf"],
         )
+        pose.image_path = image_path,
+        pose.keypoint_similarity_threshold = keypoint_similarity_threshold
 
     return PredictionResult(pose)
 

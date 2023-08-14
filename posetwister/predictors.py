@@ -9,6 +9,7 @@ import numpy as np
 from posetwister.representation import PredictionResult
 from posetwister.utils import load_image, load_video
 
+from posetwister.utils import reshape_image
 
 class DefaultImagePredictor:
     def __init__(self, model):
@@ -64,8 +65,12 @@ class DefaultVideoPredictor:
                 os.makedirs(os.path.dirname(output_path))
 
         video_stream = load_video(source)
+
+        fourcc_cap = cv2.VideoWriter_fourcc(*'MJPG')
+        video_stream.set(cv2.CAP_PROP_FOURCC, fourcc_cap)
         video_stream.set(cv2.CAP_PROP_FRAME_WIDTH, camera_resolution[1])
         video_stream.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_resolution[0])
+        video_stream.set(cv2.CAP_PROP_FPS, 30)
         width = int(video_stream.get(3))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_WIDTH) + 0.5)
         height = int(video_stream.get(4))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_HEIGHT) + 0.5)
 
@@ -87,7 +92,7 @@ class DefaultVideoPredictor:
                 break
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # frame = reshape_image(frame, 1080)
+            #frame = reshape_image(frame, 1920)
 
             predictions = self.image_predictor.predict_image(frame)[0]
             toc = time.time()
