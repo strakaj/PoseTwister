@@ -47,6 +47,8 @@ def create_representation(image_path, output_path, model_name="yolov8n", thr=0.8
             image = load_image(img_pth)
             # image = reshape_image(image, 1080)
             image_prediction = image_predictor.predict_image(image)
+            if len(image_prediction[0]) == 0:
+                continue
             image_prediction[0] = get_larges(image_prediction[0])
             image_prediction[0].pose.image_path = img_pth
 

@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 from posetwister.representation import PredictionResult
-from posetwister.utils import load_image, load_video
+from posetwister.utils import load_image, load_video, WebCamMulti
 
 from posetwister.utils import reshape_image
 
@@ -49,7 +49,7 @@ class DefaultVideoPredictor:
             self.predictions = self.predictions[-max_in_memory::]
 
     def predict(self, source: Union[str, int], output_path: Optional[str] = None,
-                camera_resolution: List[int] = [720, 1080]):
+                camera_resolution: List[int] = [720, 1080], multi=False):
         self.reset_running_variable(0)
 
         if isinstance(source, str) and not os.path.isfile(source):
@@ -64,15 +64,21 @@ class DefaultVideoPredictor:
             if not os.path.isdir(os.path.dirname(output_path)):
                 os.makedirs(os.path.dirname(output_path))
 
-        video_stream = load_video(source)
+        if multi:
+            video_stream = WebCamMulti(source, camera_resolution)
+            width = video_stream.width
+            height = video_stream.height
+            video_stream.start()
+        else:
+            video_stream = load_video(source)
 
-        fourcc_cap = cv2.VideoWriter_fourcc(*'MJPG')
-        video_stream.set(cv2.CAP_PROP_FOURCC, fourcc_cap)
-        video_stream.set(cv2.CAP_PROP_FRAME_WIDTH, camera_resolution[1])
-        video_stream.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_resolution[0])
-        video_stream.set(cv2.CAP_PROP_FPS, 30)
-        width = int(video_stream.get(3))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_WIDTH) + 0.5)
-        height = int(video_stream.get(4))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_HEIGHT) + 0.5)
+            fourcc_cap = cv2.VideoWriter_fourcc(*'MJPG')
+            video_stream.set(cv2.CAP_PROP_FOURCC, fourcc_cap)
+            video_stream.set(cv2.CAP_PROP_FRAME_WIDTH, camera_resolution[1])
+            video_stream.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_resolution[0])
+            video_stream.set(cv2.CAP_PROP_FPS, 30)
+            width = int(video_stream.get(3))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_WIDTH) + 0.5)
+            height = int(video_stream.get(4))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_HEIGHT) + 0.5)
 
         if output_path is not None:
             video_out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'XVID'), 24.0, (width, height))
@@ -86,7 +92,7 @@ class DefaultVideoPredictor:
             tic = time.time()
 
             ret, frame = video_stream.read()
-            frame = np.fliplr(frame)
+            frame = cv2.flip(frame, 1)
 
             if not ret:
                 break
@@ -103,7 +109,7 @@ class DefaultVideoPredictor:
             if output_path is not None:
                 video_out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
             else:
-                cv2.imshow('frame', frame[:, :, ::-1])
+                cv2.imshow('frame', cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 

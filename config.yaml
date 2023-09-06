@@ -3,10 +3,16 @@ ref_pose_input_path: "data/pose_templates/images"
 ref_pose_output_path: "data/pose_templates/predictions"
 ref_pose_model: "yolov8x"
 
+# save debug images during prediction
+debug_images_path: "data/debug_images"
+save_debug_poses: True
+save_video: Trueq
+
 # prediction
-prediction_model: "yolov8n"
-video_source: 0
-camera_resolution: [720, 1080]
+prediction_model: "yolov8s"
+video_source: 2
+camera_resolution: [1080, 1920] #[720, 1280]  #[720, 1280] #[480, 640] #[1080, 1920] #[1080, 1920] #[720, 1080]
+multi: True
 
 # objective
 "comparison_method": "multi_angle"
@@ -20,4 +26,4 @@ camera_resolution: [720, 1080]
 "number_of_colors": 21
 "show_result_time": 5
 "key_colors": [[232, 116, 97], [244, 211, 94], [98, 254, 153]]
-"debug_numbers_in_image": True
+"debug_numbers_in_image": False

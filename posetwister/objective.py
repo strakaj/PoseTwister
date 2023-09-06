@@ -54,15 +54,15 @@ class SessionObjective:
         if ref.pose.keypoints is None or prediction.pose.keypoints is None:
             return None
         if self.comparison_method == "multi_angle":
-            similarity = compare_pose_angels(ref.pose, prediction.pose, get_angle_scores=True)
+            similarity, perpendicular_vectors = compare_pose_angels(ref.pose, prediction.pose, get_angle_scores=True)
         else:
-            similarity = compare_pose_angels(ref.pose, prediction.pose)
-        return similarity
+            similarity, perpendicular_vectors = compare_pose_angels(ref.pose, prediction.pose)
+        return similarity, perpendicular_vectors
 
     def _check_similarity(self, similarity, kp_id):
         threshold = self.threshold
         if self.keypoint_similarity_threshold[self.progress+1]:
-            threshold = self.keypoint_similarity_threshold[self.progress][self.kp_id_to_name[kp_id]]
+            threshold = self.keypoint_similarity_threshold[self.progress+1][self.kp_id_to_name[kp_id]]
         if similarity >= threshold:
             return True
         return False
@@ -80,15 +80,32 @@ class SessionObjective:
     def pose_completed(self):
         return self._pose_completed
 
+    def complete_pose(self, skip=False):
+        if skip:
+            print(f"Pose skipped: {self.pose_name[self.progress + 1]}")
+            print("-" * 100)
+
+        self.progress += 1
+        self._pose_completed = True
+
+        if self.is_complete():
+            print("All poses completed!")
+        else:
+            print("Start:", self.pose_name[self.progress + 1])
+
+    def reset_pose_variables(self):
+        self._pose_completed = False
+        self.similarities = defaultdict(list)
+        self.state_in_row = defaultdict(lambda: 0)
+        similarity = {}
+        return similarity
+
     def __call__(self, prediction: PredictionResult):
         if self._wait:
             return None, None
 
         if self._pose_completed:
-            self._pose_completed = False
-            self.similarities = defaultdict(list)
-            self.state_in_row = defaultdict(lambda: 0)
-            similarity = {}
+            similarity = self.reset_pose_variables()
 
         if self.is_complete():
             if self.after_complete == "end":
@@ -99,7 +116,7 @@ class SessionObjective:
         # get similarity between reference and predicted pose
         ref_representation = self.target[self.progress + 1]
         if self.comparison_method == "angle" or "multi_angle":
-            similarity = self._compare_angels(ref_representation, prediction)
+            similarity, perpendicular_vectors = self._compare_angels(ref_representation, prediction)
 
         if similarity is not None:
             for kp_id in similarity:
@@ -122,19 +139,13 @@ class SessionObjective:
                                    sir >= self.objective_in_row}
             if len(self.state_in_row) == len(keypoints_completed):
                 sim_text = " ".join([f"kp {k}: {s:0.2f}" for k, s in similarity.items()])
-                print(f"Pose {self.pose_name[self.progress+1]} completed: {sim_text}")  #: {similarity:0.2f}
-                print("-"*100)
-                self.progress += 1
-                self._pose_completed = True
+                print(f"Pose {self.pose_name[self.progress + 1]} completed: {sim_text}")  #: {similarity:0.2f}
+                print("-" * 100)
+                self.complete_pose()
 
-                if self.is_complete():
-                    print("All poses completed!")
-                else:
-                    print("Start:", self.pose_name[self.progress + 1])
+        return similarity, {k: v / self.objective_in_row for k, v in self.state_in_row.items()}, perpendicular_vectors
 
 
-
-        return similarity, {k: v / self.objective_in_row for k, v in self.state_in_row.items()}
 
 
 if __name__ == "__main__":

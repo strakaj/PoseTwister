@@ -137,6 +137,14 @@ def add_keypoints(image, prediction_result):
     return image
 
 
+def add_direction(frame, kp, vc, color):
+    param = get_parameters(frame.shape)
+    param["thickness"] = int(np.ceil(param["thickness"]))
+    kp = np.round(kp).astype(int)
+    vc = np.round(vc).astype(int)
+    frame = cv2.line(frame, kp, vc, color, thickness=param["thickness"], lineType=cv2.LINE_AA)
+    return frame
+
 def add_masks(image, prediction_result, color=[255, 0, 0], alpha=0.8):
     masks = prediction_result.masks
     size = image.shape

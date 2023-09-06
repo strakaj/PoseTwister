@@ -2,18 +2,20 @@ import argparse
 import os.path
 import time
 from glob import glob
+from pynput.keyboard import Key, Listener
 
 import cv2
 import numpy as np
+from datetime import datetime
 
 from posetwister.create_reference_pose import create_representation
 from posetwister.model import YoloModel
 from posetwister.objective import SessionObjective
 from posetwister.predictors import DefaultVideoPredictor
 from posetwister.representation import Pose
-from posetwister.utils import representation_form_json, exponential_filtration, iou, load_image, load_yaml
+from posetwister.utils import representation_form_json, exponential_filtration, iou, load_image, load_yaml, save_json
 from posetwister.visualization import add_rectangles, add_keypoints, get_parameters, add_masks, get_color_gradient, \
-    add_keypoint
+    add_keypoint, add_direction
 
 
 def get_args_parser():
@@ -114,8 +116,11 @@ class VideoPredictor(DefaultVideoPredictor):
                  top_similarity_threshold=0.75,
                  show_result_time=5,
                  key_colors=[[232, 116, 97], [244, 211, 94], [98, 254, 153]],
-                 debug_values=True):
+                 debug_values=True,
+                 debug_images={},
+                 config={}):
         super().__init__(model)
+        self.config = config
         self.objective = objective
         self.top_similarity_threshold = top_similarity_threshold
         self.bot_similarity_threshold = bot_similarity_threshold
@@ -135,6 +140,17 @@ class VideoPredictor(DefaultVideoPredictor):
         self.show_completion_for_time = show_result_time
 
         self.debug_values = debug_values
+        self.debug_images = debug_images
+
+        if not self.debug_images:
+            self.debug_images["save"] = False
+
+        if self.debug_images["save"]:
+            self.debug_images.update({
+                "first": 0, "mid1": False,  "mid2": False, "last": False
+            })
+
+        self.pose_video_out = None
 
     def filter_box_predictions(self, prediction):
         boxes_new = []
@@ -234,11 +250,49 @@ class VideoPredictor(DefaultVideoPredictor):
                             param["font_scale"], [255, 255, 255], param["thickness"], param["line"])
         return frame
 
-    def after_prediction(self, frame, prediction):
+    def save_debug_data(self, frame, prediction, path, name):
+        t = datetime.now().strftime('%H_%M_%S')
+        cv2.imwrite(os.path.join(path, f"{name}-{t}.png"), frame[..., ::-1])
+        ref_pose = prediction.pose.export()
+        pose_representation = {"pose": ref_pose}
+        save_json(pose_representation, os.path.join(path, f"{name}-{t}.json"))
 
+    def prepare_perpendicular_vectors(self, prediction, perpendicular_vectors, scaler=30):
+        kp = prediction.pose.keypoints[0]
+        bbox = prediction.pose.boxes[0]
+
+        for kp_idx in perpendicular_vectors:
+            perpendicular_vectors[kp_idx] = perpendicular_vectors[kp_idx] * scaler      # resize vector
+            perpendicular_vectors[kp_idx] = perpendicular_vectors[kp_idx] + kp[kp_idx]  # move vector
+
+        return perpendicular_vectors
+
+    def init_video(self, frame, objective):
+        h, w = frame.shape[:2]
+        """
+        Traceback (most recent call last):
+          File "/home/strakajk/MLProjects/PoseTwister/main.py", line 471, in <module>
+            video_predictor.predict(config["video_source"], camera_resolution=config["camera_resolution"], multi=config["multi"])
+          File "/home/strakajk/MLProjects/PoseTwister/posetwister/predictors.py", line 108, in predict
+            frame = self.after_prediction(frame, predictions)
+          File "/home/strakajk/MLProjects/PoseTwister/main.py", line 319, in after_prediction
+            self.init_video(frame, objective)
+          File "/home/strakajk/MLProjects/PoseTwister/main.py", line 272, in init_video
+            pth = os.path.join(self.debug_images["path"], f"{objective.pose_name[objective.progress + 1]}.avi")
+        IndexError: list index out of range
+        """
+        pth = os.path.join(self.debug_images["path"], f"{objective.pose_name[objective.progress + 1]}.avi")
+        self.pose_video_out = cv2.VideoWriter(pth, cv2.VideoWriter_fourcc(*'XVID'), 24.0, (w, h))
+
+    def after_prediction(self, frame, prediction):
+        empty_frame = frame.copy()
         if self.completion_frame is not None:
             # print(self.completion_timer)
-            if self.completion_timer < self.show_completion_for_time:
+            next_pose = False
+            if cv2.waitKey(1) & 0xFF == ord('n'):
+                next_pose = True
+
+            if not next_pose: #self.completion_timer < self.show_completion_for_time:
                 self.completion_timer += (time.time() - self.last_frame_time)
                 self.last_frame_time = time.time()
                 return self.completion_frame
@@ -247,6 +301,19 @@ class VideoPredictor(DefaultVideoPredictor):
                 self.completion_frame = None
                 self.completion_timer = 0
 
+        if self.objective is not None:
+            if cv2.waitKey(1) & 0xFF == ord('r'):
+                self.objective.progress = -1
+                self.objective.reset_pose_variables()
+                print("Start:", objective.pose_name[objective.progress + 1])
+
+            if cv2.waitKey(1) & 0xFF == ord('s'):
+                if self.config["save_video"]:
+                    self.pose_video_out.release()
+                    self.pose_video_out = None
+
+                self.objective.complete_pose(skip=True)
+
         if len(prediction) > 0:
             # self.select_top_prediction(frame, prediction)
             self.select_center_prediction(frame, prediction)
@@ -254,10 +321,27 @@ class VideoPredictor(DefaultVideoPredictor):
             self.filter_keypoint_predictions(prediction)
 
             if self.objective is not None:
-                similarity, correct_in_row = objective(prediction)
+                if self.config["save_video"]:
+                    if self.pose_video_out is None:
+                        self.init_video(frame, objective)
+                    self.pose_video_out.write(cv2.cvtColor(empty_frame, cv2.COLOR_RGB2BGR))
+
+
+                similarity, correct_in_row, perpendicular_vectors = objective(prediction)
+                #perpendicular_vectors = self.prepare_perpendicular_vectors(prediction, perpendicular_vectors)
 
                 # do something if pose was completed
                 if objective.pose_completed:
+                    # stop recording video
+                    if self.config["save_video"]:
+                        self.pose_video_out.release()
+                        self.pose_video_out = None
+
+                    # save debug images
+                    if self.debug_images["save"] and not self.debug_images["last"]:
+                        self.save_debug_data(empty_frame, prediction, self.debug_images["path"], f"{objective.pose_name[objective.progress]}_3")
+                        self.debug_images["last"] = True
+
                     if objective.pose_image:
                         objective.wait = True
                         pose_image = objective.pose_image[objective.progress]
@@ -274,8 +358,13 @@ class VideoPredictor(DefaultVideoPredictor):
                         combined_image = combine_images(frame, pose_image, target_shape=target_shape) #combine_images_side_by_side(frame, pose_image)
                         self.completion_frame = combined_image
                         frame = combined_image
+                        if self.debug_images["save"]:
+                            self.save_debug_data(frame, prediction, self.debug_images["path"], f"{objective.pose_name[objective.progress]}_completed")
                         self.last_frame_time = time.time()
                         return frame
+                else:
+                    if self.debug_images["save"] and self.debug_images["last"]:
+                        self.debug_images.update({"first": 0, "mid1": False, "mid2": False, "last": False})
 
                 # visualize predicted pose
                 if similarity is not None:
@@ -288,13 +377,30 @@ class VideoPredictor(DefaultVideoPredictor):
                             frame = self.add_similarity(frame, f"{similarity:.2f}")
                     else:
                         sim_text = " ".join([f"{s:0.2f}" for k, s in similarity.items()])
-                        for kp_id in similarity:
+                        for kp_id, vc_id in zip(similarity, perpendicular_vectors):
                             kp = prediction.pose.keypoints[0][kp_id]
                             idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity[kp_id]])
                             color = self.colors[idx]
+                            #frame = add_direction(frame, kp, perpendicular_vectors[vc_id], color)
                             frame = add_keypoint(frame, kp, correct_in_row[kp_id], color)
                         if self.debug_values:
                             frame = self.add_similarity(frame, sim_text)
+
+                    # save debug images
+                    if self.debug_images["save"]:
+                        if self.debug_images["first"] == 100:
+                            self.save_debug_data(empty_frame, prediction, self.debug_images["path"], f"{objective.pose_name[objective.progress+1]}_0")
+                            self.debug_images["first"] += 1
+                        elif self.debug_images["first"] < 100:
+                            self.debug_images["first"] += 1
+
+                        s = [s for s in objective.state_in_row.values() if s >= objective.objective_in_row]
+                        if len(s) == 2 and not self.debug_images["mid1"]:
+                            self.save_debug_data(empty_frame, prediction, self.debug_images["path"], f"{objective.pose_name[objective.progress + 1]}_1")
+                            self.debug_images["mid1"] = True
+                        if len(s) == 3 and not self.debug_images["mid2"]:
+                            self.save_debug_data(empty_frame, prediction, self.debug_images["path"], f"{objective.pose_name[objective.progress + 1]}_2")
+                            self.debug_images["mid2"] = True
 
             if similarity is not None and len(similarity) == 1 and -1 in similarity:
                 frame = add_rectangles(frame, prediction.segmentation, add_conf=True)
@@ -336,6 +442,15 @@ if __name__ == "__main__":
     image_paths = [glob(os.path.join(config["ref_pose_input_path"], f"{name}.*"))[0] for name in image_names]
     pose_images = [load_image(p) for p in image_paths]
 
+    # create folder for debug poses
+    debug_images = {"save": config["save_debug_poses"]}
+    if config["save_debug_poses"]:
+        now = datetime.now()
+        path = os.path.join(config["debug_images_path"], now.strftime("%d_%m_%Y-%H_%M_%S"))
+        os.makedirs(path)
+        debug_images["path"] = path
+
+
     # create objective and predictor
     objective = SessionObjective(
         ref_poses_representation,
@@ -354,8 +469,10 @@ if __name__ == "__main__":
         top_similarity_threshold=config["similarity_threshold"],
         show_result_time=config["show_result_time"],
         key_colors=config["key_colors"],
-        debug_values=config["debug_numbers_in_image"]
+        debug_values=config["debug_numbers_in_image"],
+        debug_images=debug_images,
+        config=config
     )
 
     # camera source
-    video_predictor.predict(config["video_source"], camera_resolution=config["camera_resolution"])
+    video_predictor.predict(config["video_source"], camera_resolution=config["camera_resolution"], multi=config["multi"])

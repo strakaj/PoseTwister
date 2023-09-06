@@ -26,7 +26,8 @@ def load_yaml(path):
 def representation_form_json(path):
     data = load_json(path)
     image_path = None if "image_path" not in data["pose"] else data["pose"]["image_path"]
-    keypoint_similarity_threshold = None if "keypoint_similarity_threshold" not in data["pose"] else data["pose"]["keypoint_similarity_threshold"]
+    keypoint_similarity_threshold = None if "keypoint_similarity_threshold" not in data["pose"] else data["pose"][
+        "keypoint_similarity_threshold"]
 
     if "pose" in data:
         pose = Pose(
@@ -146,3 +147,52 @@ class Timer:
         self.toc = time.time()
         exec_time = self.toc - self.tic
         print(f"{self.message} took: {exec_time:0.3f}s to execute.")
+
+
+from threading import Thread
+import cv2
+
+class WebCamMulti:
+    def __init__(self, src=0, camera_resolution=[720, 1080]):
+        # initialize the video camera stream and read the first frame
+        # from the stream
+        self.stream = cv2.VideoCapture(src)
+        fourcc_cap = cv2.VideoWriter_fourcc(*'MJPG')
+        self.stream.set(cv2.CAP_PROP_FOURCC, fourcc_cap)
+        self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, camera_resolution[1])
+        self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_resolution[0])
+        self.stream.set(cv2.CAP_PROP_FPS, 30)
+
+        self.width = int(self.stream.get(3))  # or int(video_stream.get(cv2.CAP_PROP_FRAME_WIDTH) + 0.5)
+        self.height = int(self.stream.get(4))
+
+        (self.ret, self.frame) = self.stream.read()
+        # initialize the variable used to indicate if the thread should
+        # be stopped
+        self.stopped = False
+
+    def start(self):
+        # start the thread to read frames from the video stream
+        Thread(target=self.update, args=()).start()
+        return self
+
+    def update(self):
+        # keep looping infinitely until the thread is stopped
+        while self.isOpened():
+            # if the thread indicator variable is set, stop the thread
+            if self.stopped:
+                return
+            # otherwise, read the next frame from the stream
+            (self.ret, self.frame) = self.stream.read()
+
+    def read(self):
+        # return the frame most recently read
+        return self.ret, self.frame
+
+    def release(self):
+        # indicate that the thread should be stopped
+        self.stopped = True
+        self.stream.release()
+
+    def isOpened(self):
+        return self.stream.isOpened()

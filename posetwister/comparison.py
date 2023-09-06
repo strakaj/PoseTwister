@@ -4,6 +4,12 @@ from posetwister.visualization import KEYPOINT_NAMES
 import math
 kp_name_to_id = {n: i for i, n in enumerate(KEYPOINT_NAMES)}
 
+def perpendicular(a):
+    b = np.empty_like(a)
+    b[0] = -a[1]
+    b[1] = a[0]
+    return b
+
 
 def calculate_angle(ref_kp, prd_kp):
     x1, y1 = ref_kp
@@ -29,6 +35,7 @@ def compare_pose_angels(pose1: Pose, pose2: Pose, get_angle_scores: bool = False
 
     calculated_angles = {}
     similarity = {}
+    perpendicular_vectors = {}
 
     ref_pose = pose1.keypoints[0]
     prd_pose = pose2.keypoints[0]
@@ -47,7 +54,17 @@ def compare_pose_angels(pose1: Pose, pose2: Pose, get_angle_scores: bool = False
         similarity[start_kp_name] = (180 - np.abs(angle)) / 180
         calculated_angles[start_kp_name] = angle
 
+        # create perpendicular vectors
+        sign = angle / np.abs(angle)
+        ortho_prd_kp = perpendicular(prd_kp)
+        #ortho_prd_kp = ortho_prd_kp / np.linalg.norm(ortho_prd_kp)  # normalize
+        #print(ortho_prd_kp)
+        ortho_prd_kp *= sign                                        # adjust direction
+        ortho_prd_kp *= np.abs(angle) / 180                         # resize
+        ortho_prd_kp = ortho_prd_kp + np.array(prd_pose[end_kp_id])  # move vector
+        perpendicular_vectors[end_kp_id] = ortho_prd_kp
+
     if get_angle_scores:
         sim = {kp_name_to_id[name]: s for name, s in similarity.items()}
-        return sim
-    return {-1: np.mean([s for s in similarity.values()])}
+        return sim, perpendicular_vectors
+    return {-1: np.mean([s for s in similarity.values()])}, perpendicular_vectors
