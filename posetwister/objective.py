@@ -9,15 +9,8 @@ import numpy as np
 from posetwister.visualization import KEYPOINT_NAMES
 
 
-
 class SessionObjective:
-    def __init__(self, config, target: Union[PredictionResult, List[PredictionResult]], comparison_method: str,
-                 after_complete: str, threshold: float = 0.75, alpha: float = 0.9, in_row: int = 0):
-        """
-        :param target:
-        :param comparison_method: ('angle', 'multi_angle')
-        :param after_complete: ('end', 'reset')
-        """
+    def __init__(self, config, target: Union[PredictionResult, List[PredictionResult]], alpha: float = 0.9):
         if isinstance(target, list):
             self.target_type = "sequence"
         else:
@@ -29,12 +22,12 @@ class SessionObjective:
         self.pose_name = [os.path.basename(t.pose.image_path[0]).split(".")[0] for t in target]
         self.keypoint_similarity_threshold = [t.pose.keypoint_similarity_threshold for t in target]
         self.progress = -1
-        self.comparison_method = comparison_method
-        self.after_complete = after_complete
-        self.threshold = threshold
+        self.comparison_method = config.get("comparison_method", "multi_angle")
+        self.after_complete = config.get("after_complete", "reset")
+        self.threshold = config.get("similarity_threshold", 0.75)
         self.kp_id_to_name = {i: n for i, n in enumerate(KEYPOINT_NAMES)}
 
-        self.objective_in_row = in_row
+        self.objective_in_row = config.get("poses_in_row", 0)
         self.state_in_row = defaultdict(lambda: 0)
 
         self.alpha = alpha
@@ -44,7 +37,7 @@ class SessionObjective:
         self._wait = False
         self._pose_completed = False
 
-        print("Start:",  self.pose_name[self.progress+1])
+        print("Start:", self.pose_name[self.progress + 1])
 
     def is_complete(self):
         if len(self.target) == self.progress + 1:
@@ -62,8 +55,8 @@ class SessionObjective:
 
     def _check_similarity(self, similarity, kp_id):
         threshold = self.threshold
-        if self.keypoint_similarity_threshold[self.progress+1]:
-            threshold = self.keypoint_similarity_threshold[self.progress+1][self.kp_id_to_name[kp_id]]
+        if self.keypoint_similarity_threshold[self.progress + 1]:
+            threshold = self.keypoint_similarity_threshold[self.progress + 1][self.kp_id_to_name[kp_id]]
         if similarity >= threshold:
             return True
         return False
@@ -91,6 +84,8 @@ class SessionObjective:
 
         if self.is_complete():
             print("All poses completed!")
+            if self.after_complete == "reset":
+                print("Start:", self.pose_name[0])
         else:
             print("Start:", self.pose_name[self.progress + 1])
 
@@ -131,7 +126,7 @@ class SessionObjective:
                 # for each keypoint check if prediction is similar enough
                 if self._check_similarity(similarity[kp_id], kp_id):
                     self.state_in_row[kp_id] = np.clip(self.state_in_row[kp_id] + 1, 0, self.objective_in_row)
-                    #print(f"Pose {self.progress + 1} kp {kp_id}: {self.state_in_row[kp_id]}/{self.objective_in_row}")
+                    # print(f"Pose {self.progress + 1} kp {kp_id}: {self.state_in_row[kp_id]}/{self.objective_in_row}")
                 else:
                     # self.similarities[kp_id] = []
                     self.state_in_row[kp_id] = 0
@@ -145,18 +140,3 @@ class SessionObjective:
                 self.complete_pose()
 
         return similarity, {k: v / self.objective_in_row for k, v in self.state_in_row.items()}, perpendicular_vectors
-
-
-
-
-if __name__ == "__main__":
-    pose0 = representation_form_json("../data/ref_poses/t_pose-0.json")
-    pose1 = representation_form_json("../data/ref_poses/t_pose-1.json")
-    pose2 = representation_form_json("../data/ref_poses/t_pose-2.json")
-
-    objective = SessionObjective(
-        [pose0, pose2, pose0], "angle", "reset"
-    )
-    print(objective(pose1))
-    print(objective(pose2))
-    print(objective(pose1))

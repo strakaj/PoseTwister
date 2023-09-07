@@ -1,6 +1,5 @@
 import argparse
 import os.path
-import time
 from datetime import datetime
 from glob import glob
 
@@ -100,39 +99,37 @@ def crop(image1, image2, bbox):
 
 
 class VideoPredictor(DefaultVideoPredictor):
-    def __init__(self,
-                 model,
-                 objective=None,
-                 num_colors=21,
-                 bot_similarity_threshold=0.4,
-                 top_similarity_threshold=0.75,
-                 show_result_time=5,
-                 key_colors=[[232, 116, 97], [244, 211, 94], [98, 254, 153]],
-                 debug_values=True,
-                 debug_images={},
-                 config={}):
+    def __init__(self, config, model, objective=None):
         super().__init__(model)
         self.config = config
         self.objective = objective
-        self.top_similarity_threshold = top_similarity_threshold
-        self.bot_similarity_threshold = bot_similarity_threshold
-        self.num_colors = num_colors
-        self.colors = get_color_gradient(self.num_colors, plot=False,
-                                         key_colors=key_colors)
+        self.completion_frame = None
+        self.pose_video_out = None
+        self.show_center_box = config.get("show_center_box", True)
+
+        self.top_similarity_threshold = config.get("similarity_threshold", 0.4)
+        self.bot_similarity_threshold = config.get("bot_similarity_threshold", 0.75)
+
+        # get visualization colors
+        self.num_colors = config.get("num_colors", 21)
+        self.colors = get_color_gradient(self.num_colors,
+                                         plot=False,
+                                         key_colors=config.get("key_colors", [[232, 116, 97], [244, 211, 94], [98, 254, 153]]))
         self.color_thresholds = np.linspace(self.bot_similarity_threshold,
                                             self.top_similarity_threshold - (1 / (self.num_colors - 1)),
                                             self.num_colors)
-
         self.colors = [self.colors[0], *self.colors]
         self.color_thresholds = [0.0, *self.color_thresholds]
 
-        self.completion_frame = None
-        self.completion_timer = 0
-        self.last_frame_time = 0
-        self.show_completion_for_time = show_result_time
 
-        self.debug_values = debug_values
-        self.debug_images = debug_images
+        # get variables for debugging
+        self.debug_values = config.get("debug_values", False)
+        self.debug_images = {"save": config["save_debug_poses"]}
+        if config["save_debug_poses"]:
+            now = datetime.now()
+            path = os.path.join(config["debug_images_path"], now.strftime("%d_%m_%Y-%H_%M_%S"))
+            os.makedirs(path)
+            self.debug_images["path"] = path
 
         if not self.debug_images:
             self.debug_images["save"] = False
@@ -141,8 +138,6 @@ class VideoPredictor(DefaultVideoPredictor):
             self.debug_images.update({
                 "first": 0, "mid1": False, "mid2": False, "last": False
             })
-
-        self.pose_video_out = None
 
     def filter_box_predictions(self, prediction):
         boxes_new = []
@@ -218,7 +213,8 @@ class VideoPredictor(DefaultVideoPredictor):
         top_box_idx = np.argmax(score)
         prediction.keep_by_idx([top_box_idx])
 
-        cv2.rectangle(frame, center_box[:2], center_box[2:], color=[192, 192, 192], thickness=2)
+        if self.show_center_box:
+            cv2.rectangle(frame, center_box[:2], center_box[2:], color=[192, 192, 192], thickness=2)
 
     def add_frame_rate(self, frame, mov_avg=12):
         param = get_parameters(frame.shape)
@@ -277,14 +273,11 @@ class VideoPredictor(DefaultVideoPredictor):
                 self.key_pressed = None
                 next_pose = True
 
-            if not next_pose:  # self.completion_timer < self.show_completion_for_time:
-                self.completion_timer += (time.time() - self.last_frame_time)
-                self.last_frame_time = time.time()
+            if not next_pose:
                 return self.completion_frame
             else:
                 objective.wait = False
                 self.completion_frame = None
-                self.completion_timer = 0
 
         if self.objective is not None:
             if self.key_pressed is not None and self.key_pressed == "r":  # cv2.waitKey(1) & 0xFF == ord('r')
@@ -349,7 +342,6 @@ class VideoPredictor(DefaultVideoPredictor):
                         if self.debug_images["save"]:
                             self.save_debug_data(frame, prediction, self.debug_images["path"],
                                                  f"{objective.pose_name[objective.progress]}_completed")
-                        self.last_frame_time = time.time()
                         return frame
                 else:
                     if self.debug_images["save"] and self.debug_images["last"]:
@@ -417,40 +409,21 @@ if __name__ == "__main__":
     yolo_model = YoloModel(config["prediction_model"])
 
     # load reference poses and corresponding images
-    ref_poses_representation_paths = glob(os.path.join(config["ref_pose_output_path"], "*.json"))
+    prediction_pose_names = config.get("prediction_pose_names", [])
+    if prediction_pose_names:
+        ref_poses_representation_paths = [os.path.join(config["ref_pose_output_path"], name) for name in prediction_pose_names]
+    else:
+        ref_poses_representation_paths = glob(os.path.join(config["ref_pose_output_path"], "*.json"))
     ref_poses_representation = [representation_form_json(p) for p in ref_poses_representation_paths]
-
-    # create folder for debug poses
-    debug_images = {"save": config["save_debug_poses"]}
-    if config["save_debug_poses"]:
-        now = datetime.now()
-        path = os.path.join(config["debug_images_path"], now.strftime("%d_%m_%Y-%H_%M_%S"))
-        os.makedirs(path)
-        debug_images["path"] = path
 
     # create objective and predictor
     objective = SessionObjective(
         config,
         ref_poses_representation,
-        config["comparison_method"],
-        config["after_complete"],
-        in_row=config["poses_in_row"],
-        threshold=config["similarity_threshold"],
     )
 
     video_predictor = VideoPredictor(
+        config,
         yolo_model,
         objective,
-        num_colors=config["number_of_colors"],
-        bot_similarity_threshold=config["bot_similarity_threshold"],
-        top_similarity_threshold=config["similarity_threshold"],
-        show_result_time=config["show_result_time"],
-        key_colors=config["key_colors"],
-        debug_values=config["debug_numbers_in_image"],
-        debug_images=debug_images,
-        config=config
     )
-
-    # camera source
-    video_predictor.predict(config["video_source"], camera_resolution=config["camera_resolution"],
-                            multi=config["multi"])

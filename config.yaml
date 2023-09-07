@@ -13,10 +13,14 @@ prediction_model: "yolov8s" # s - 50fps     m - 28fps
 video_source: 0
 camera_resolution: [1080, 1920]
 multi: True
+show_center_box: True
+prediction_pose_names: [
+  'arnold2.json', 'leaonardo.json', 'david.json', 'usain.json', 'muhammad.json', 'mario.json', 'discobol.json', 'freddie.json', 'superman.json', 'jordan.json'
+]
 
 # objective
-"comparison_method": "multi_angle"
-"after_complete": "reset"
+"comparison_method": "multi_angle"    # 'angle', 'multi_angle'
+"after_complete": "reset"             # 'end', 'reset'
 "poses_in_row": 30
 "similarity_threshold": 0.85
 "bot_similarity_threshold": 0.4
