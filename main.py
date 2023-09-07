@@ -427,3 +427,7 @@ if __name__ == "__main__":
         yolo_model,
         objective,
     )
+
+    # camera source
+    video_predictor.predict(config["video_source"], camera_resolution=config["camera_resolution"],
+                            multi=config["multi"])
