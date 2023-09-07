@@ -50,7 +50,7 @@ def create_representation(image_path, output_path, model_name="yolov8n", thr=0.8
             if len(image_prediction[0]) == 0:
                 continue
             image_prediction[0] = get_larges(image_prediction[0])
-            image_prediction[0].pose.image_path = img_pth
+            image_prediction[0].pose.image_path = os.path.basename(img_pth)
 
             image_prediction[0].pose.keypoint_similarity_threshold = {k: thr for k in kp_names}
 

@@ -101,7 +101,7 @@
                 0.7353602051734924
             ]
         ],
-        "image_path": "/home/strakajk/MLProjects/PoseTwister/data/pose_templates/images/muhammad.png",
+        "image_path": "muhammad.png",
         "keypoint_similarity_threshold": {
             "left_shoulder": 0.85,
             "left_elbow": 0.85,

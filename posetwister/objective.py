@@ -11,7 +11,7 @@ from posetwister.visualization import KEYPOINT_NAMES
 
 
 class SessionObjective:
-    def __init__(self, target: Union[PredictionResult, List[PredictionResult]], comparison_method: str,
+    def __init__(self, config, target: Union[PredictionResult, List[PredictionResult]], comparison_method: str,
                  after_complete: str, threshold: float = 0.75, alpha: float = 0.9, in_row: int = 0):
         """
         :param target:
@@ -24,7 +24,8 @@ class SessionObjective:
             self.target_type = "separate"
             target = [target]
         self.target = target
-        self.pose_image = [load_image(t.pose.image_path[0]) for t in target]
+        ref_pose_input_path = config["ref_pose_input_path"]
+        self.pose_image = [load_image(os.path.join(ref_pose_input_path, t.pose.image_path[0])) for t in target]
         self.pose_name = [os.path.basename(t.pose.image_path[0]).split(".")[0] for t in target]
         self.keypoint_similarity_threshold = [t.pose.keypoint_similarity_threshold for t in target]
         self.progress = -1

@@ -101,7 +101,7 @@
                 0.950289785861969
             ]
         ],
-        "image_path": "/home/strakajk/MLProjects/PoseTwister/data/pose_templates/new_images/arnold2.png",
+        "image_path": "arnold2.png",
         "keypoint_similarity_threshold": {
             "left_shoulder": 0.90,
             "left_elbow": 0.90,

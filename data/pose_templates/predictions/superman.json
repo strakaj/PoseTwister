@@ -101,7 +101,7 @@
                 0.24848684668540955
             ]
         ],
-        "image_path": "/home/strakajk/MLProjects/PoseTwister/data/pose_templates/new_images/superman.png",
+        "image_path": "superman.png",
         "keypoint_similarity_threshold": {
             "left_shoulder": 0.90,
             "left_elbow": 0.90,

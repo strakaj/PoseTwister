@@ -101,7 +101,7 @@
                 0.9797662496566772
             ]
         ],
-        "image_path": "/home/strakajk/MLProjects/PoseTwister/data/pose_templates/images/jordan.png",
+        "image_path": "jordan.png",
         "keypoint_similarity_threshold": {
             "left_shoulder": 0.85,
             "left_elbow": 0.85,

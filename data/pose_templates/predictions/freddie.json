@@ -101,7 +101,7 @@
                 0.8184212446212769
             ]
         ],
-        "image_path": "/home/strakajk/MLProjects/PoseTwister/data/pose_templates/images/freddie.png",
+        "image_path": "freddie.png",
         "keypoint_similarity_threshold": {
             "left_shoulder": 0.85,
             "left_elbow": 0.85,

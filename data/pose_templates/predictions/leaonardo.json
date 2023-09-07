@@ -101,7 +101,7 @@
                 0.8636912107467651
             ]
         ],
-        "image_path": "/home/strakajk/MLProjects/PoseTwister/data/pose_templates/new_images/leaonardo.png",
+        "image_path": "leaonardo.png",
         "keypoint_similarity_threshold": {
             "left_shoulder": 0.90,
             "left_elbow": 0.90,

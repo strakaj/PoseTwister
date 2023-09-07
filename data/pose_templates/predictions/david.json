@@ -101,7 +101,7 @@
                 0.9601302146911621
             ]
         ],
-        "image_path": "/home/strakajk/MLProjects/PoseTwister/data/pose_templates/images/david.png",
+        "image_path": "david.png",
         "keypoint_similarity_threshold": {
             "left_shoulder": 0.85,
             "left_elbow": 0.85,

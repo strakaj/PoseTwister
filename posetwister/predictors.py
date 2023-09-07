@@ -5,6 +5,7 @@ from typing import Union, List, Optional
 
 import cv2
 import numpy as np
+from pynput import keyboard
 
 from posetwister.representation import PredictionResult
 from posetwister.utils import load_image, load_video, WebCamMulti
@@ -41,6 +42,11 @@ class DefaultVideoPredictor:
         self.prediction_times = []
         self.predictions = []
         self.max_var_in_memory = 12
+
+        listener = keyboard.Listener(
+            on_release=self.on_release)
+        listener.start()
+        self.key_pressed = None
 
     def reset_running_variable(self, max_in_memory):
         if len(self.prediction_times) > max_in_memory:
@@ -98,7 +104,7 @@ class DefaultVideoPredictor:
                 break
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            #frame = reshape_image(frame, 1920)
+            # frame = reshape_image(frame, 1920)
 
             predictions = self.image_predictor.predict_image(frame)[0]
             toc = time.time()
@@ -110,7 +116,7 @@ class DefaultVideoPredictor:
                 video_out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
             else:
                 cv2.imshow('frame', cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                if cv2.waitKey(1) & 0xFF == ord('q'):  # if self.key_pressed is not None and self.key_pressed == "q":
                     break
 
         video_stream.release()
@@ -119,3 +125,10 @@ class DefaultVideoPredictor:
 
     def after_prediction(self, frame: np.ndarray, prediction: PredictionResult) -> np.ndarray:
         return frame
+
+    def on_release(self, key):
+        if hasattr(key, "char"):
+            self.key_pressed = key.char
+        if key == keyboard.Key.esc:
+            # Stop listener
+            return False

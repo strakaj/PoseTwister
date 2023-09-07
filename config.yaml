@@ -6,12 +6,12 @@ ref_pose_model: "yolov8x"
 # save debug images during prediction
 debug_images_path: "data/debug_images"
 save_debug_poses: True
-save_video: Trueq
+save_video: False
 
 # prediction
-prediction_model: "yolov8s"
-video_source: 2
-camera_resolution: [1080, 1920] #[720, 1280]  #[720, 1280] #[480, 640] #[1080, 1920] #[1080, 1920] #[720, 1080]
+prediction_model: "yolov8s" # s - 50fps     m - 28fps
+video_source: 0
+camera_resolution: [1080, 1920]
 multi: True
 
 # objective
