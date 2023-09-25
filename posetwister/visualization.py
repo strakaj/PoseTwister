@@ -49,7 +49,7 @@ def add_gradient(image, center, color, radius):
     return image
 
 
-def add_keypoint(image, keypoint, in_row_norm, color):
+def add_keypoint(image, keypoint, in_row_norm, color, neighbors=None, sim=0.5):
     in_row_norm = np.abs(in_row_norm - 1)
     parameters = {
         "radius_multiplier": 0.5,
@@ -69,8 +69,18 @@ def add_keypoint(image, keypoint, in_row_norm, color):
         image = add_gradient(image, [x, y], color, param["radius"] * parameters["glow2_size"])
     image = cv2.circle(image, (x, y), radius=param["radius"], color=color, thickness=-1)
 
-    indicator_circle_radius = np.floor(24 * in_row_norm).astype(int)
+    # if sim > 0.6:
+    #     sim = 0.6
+    # indicator_circle_radius = np.floor(24 * in_row_norm).astype(int)
+    indicator_circle_radius = np.floor(24 * (1 - sim) * 1.2 + 18 * in_row_norm).astype(int)
     image = cv2.circle(image, (x, y), radius=indicator_circle_radius, color=color, thickness=param["thickness"])
+
+    if neighbors is not None:
+        for neighbor in neighbors:
+            nb_vector = neighbor - (x, y)
+            nb_normed = nb_vector/np.linalg.norm(nb_vector)
+            nb_sized = nb_normed*30*1.5
+            image = cv2.line(image, (x, y), np.round((x,y)+nb_sized).astype(int), color, 3)
 
     return image
 

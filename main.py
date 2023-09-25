@@ -15,6 +15,14 @@ from posetwister.visualization import add_rectangles, add_keypoints, get_paramet
     add_keypoint
 
 
+KEYPOINT_NEIGHBORS = {5: (6, 7),  # left_shoulder
+                      6: (5, 8),  # right_shoulder
+                      7: (5, 9),  # left_elbow
+                      8: (6, 10),  # right_elbow
+                      11: (5, 13),  # left_hip
+                      12: (6, 14),  # right_hip
+                      }
+
 def get_args_parser():
     parser = argparse.ArgumentParser('', add_help=False)
     parser.add_argument('--config_path', default="config.yaml", type=str)
@@ -123,7 +131,7 @@ class VideoPredictor(DefaultVideoPredictor):
 
 
         # get variables for debugging
-        self.debug_values = config.get("debug_values", False)
+        self.debug_values = config.get("debug_numbers_in_image", False)
         self.debug_images = {"save": config["save_debug_poses"]}
         if config["save_debug_poses"]:
             now = datetime.now()
@@ -363,7 +371,8 @@ class VideoPredictor(DefaultVideoPredictor):
                             idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity[kp_id]])
                             color = self.colors[idx]
                             # frame = add_direction(frame, kp, perpendicular_vectors[vc_id], color)
-                            frame = add_keypoint(frame, kp, correct_in_row[kp_id], color)
+                            neighbors = [prediction.pose.keypoints[0][neighbor] for neighbor in KEYPOINT_NEIGHBORS[kp_id]]
+                            frame = add_keypoint(frame, kp, correct_in_row[kp_id], color, neighbors=neighbors, sim=similarity[kp_id])
                         if self.debug_values:
                             frame = self.add_similarity(frame, sim_text)
 
@@ -428,6 +437,5 @@ if __name__ == "__main__":
         objective,
     )
 
-    # camera source
     video_predictor.predict(config["video_source"], camera_resolution=config["camera_resolution"],
                             multi=config["multi"])
