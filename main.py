@@ -121,9 +121,8 @@ class VideoPredictor(DefaultVideoPredictor):
         self.colors = [self.colors[0], *self.colors]
         self.color_thresholds = [0.0, *self.color_thresholds]
 
-
         # get variables for debugging
-        self.debug_values = config.get("debug_values", False)
+        self.debug_values = config.get("debug_numbers_in_image", False)
         self.debug_images = {"save": config["save_debug_poses"]}
         if config["save_debug_poses"]:
             now = datetime.now()
