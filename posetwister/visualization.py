@@ -7,7 +7,6 @@ KEYPOINT_NAMES = ["nose", "left_eye", "right_eye", "left_ear", "right_ear", "lef
                   "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist",
                   "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle"]
 
-
 def get_alpha(size):
     h, w = size, size
 
@@ -143,6 +142,24 @@ def add_keypoints(image, prediction_result):
         for j, kp in enumerate(kps):
             x, y = np.round(kp).astype(int)
             image = cv2.circle(image, (x, y), radius=param["radius"], color=colors[j], thickness=-1)
+
+    return image
+
+
+def add_poses(image, prediction_result):
+    keypoints = prediction_result.keypoints
+    param = get_parameters(image.shape)
+
+    colors = np.array([plt.cm.Set1(i / len(keypoints)) for i in range(len(keypoints))]) * 255
+
+    pose_lines = [(5, 6), (5, 7), (7, 9), (6, 8), (8, 10), (5, 11), (11, 13), (13, 15),
+                  (6, 12), (12, 14), (14, 16)]
+
+    for i, kps in enumerate(keypoints):
+        for line in pose_lines:
+            start_point = (round(kps[line[0], 0]), round(kps[line[0], 1]))
+            end_point = (round(kps[line[1], 0]), round(kps[line[1], 1]))
+            image = cv2.line(image, start_point, end_point, color=colors[i], thickness=param["thickness"])
 
     return image
 
