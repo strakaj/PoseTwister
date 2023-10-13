@@ -2,10 +2,20 @@ import cv2
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+from PIL import ImageFont, ImageDraw, Image
 
 KEYPOINT_NAMES = ["nose", "left_eye", "right_eye", "left_ear", "right_ear", "left_shoulder",
                   "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist",
                   "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle"]
+
+KEYPOINT_NEIGHBORS = {5: (6, 7),  # left_shoulder
+                      6: (5, 8),  # right_shoulder
+                      7: (5, 9),  # left_elbow
+                      8: (6, 10),  # right_elbow
+                      11: (5, 13),  # left_hip
+                      12: (6, 14),  # right_hip
+                      }
+
 
 def get_alpha(size):
     h, w = size, size
@@ -77,9 +87,9 @@ def add_keypoint(image, keypoint, in_row_norm, color, neighbors=None, sim=0.5):
     if neighbors is not None:
         for neighbor in neighbors:
             nb_vector = neighbor - (x, y)
-            nb_normed = nb_vector/np.linalg.norm(nb_vector)
-            nb_sized = nb_normed*30*1.5
-            image = cv2.line(image, (x, y), np.round((x,y)+nb_sized).astype(int), color, 3)
+            nb_normed = nb_vector / np.linalg.norm(nb_vector)
+            nb_sized = nb_normed * 30 * 1.5
+            image = cv2.line(image, (x, y), np.round((x, y) + nb_sized).astype(int), color, 3)
 
     return image
 
@@ -172,11 +182,57 @@ def add_direction(frame, kp, vc, color):
     frame = cv2.line(frame, kp, vc, color, thickness=param["thickness"], lineType=cv2.LINE_AA)
     return frame
 
+
 def add_masks(image, prediction_result, color=[255, 0, 0], alpha=0.8):
     masks = prediction_result.masks
-    size = image.shape
     for mask in masks:
         image[mask > 0] = (image[mask > 0] * alpha) + (np.array(color) * (1 - alpha))
+
+    return image
+
+
+def add_text(image, text):
+    h, w, _ = image.shape
+    box_start = 0.15
+    box_end = 0.02
+
+    alpha = 0.75
+    color = 220
+
+    text_start_x = 0.05
+    text_start_y = 0.6
+    use_pil = False
+    try:
+        font1 = ImageFont.truetype("data/Roboto-Regular.ttf", 52)
+        font2 = ImageFont.truetype("data/Roboto-Regular.ttf", 34)
+        use_pil = True
+    except:
+        font = cv2.FONT_HERSHEY_SIMPLEX
+    text_color = 10
+
+    x = [0, w]
+    y = [int(h - (h * box_start)), int(h - (h * box_end))]
+    text_box = np.ones([y[1] - y[0], x[1] - x[0], 3]) * color
+    image[y[0]:y[1], x[0]:x[1]] = alpha * text_box + (1 - alpha) * image[y[0]:y[1], x[0]:x[1]]
+    cv2.rectangle(image, [x[0], y[0]], [x[1], y[1]], [color] * 3, 3)
+    if not use_pil:
+        text_start = [int(x[0] + (x[1] - x[0]) * text_start_x), int(y[1] - (y[1] - y[0]) * text_start_y)]
+        cv2.putText(image, text.get("0", ""), text_start, font, 1.5, [text_color] * 3, 3, cv2.LINE_AA)
+        text_start = [int(x[0] + 1.5 * (x[1] - x[0]) * text_start_x), int(y[1] - 0.55 * (y[1] - y[0]) * text_start_y)]
+        cv2.putText(image, text.get("1", ""), text_start, font, 1, [text_color] * 3, 2, cv2.LINE_AA)
+        text_start = [int(x[0] + 1.5 * (x[1] - x[0]) * text_start_x), int(y[1] - 0.125 * (y[1] - y[0]) * text_start_y)]
+        cv2.putText(image, text.get("2", ""), text_start, font, 1, [text_color] * 3, 2, cv2.LINE_AA)
+    else:
+        image = Image.fromarray(image)
+        draw = ImageDraw.Draw(image)
+        text_start_y = 1
+        text_start = [int(x[0] + (x[1] - x[0]) * text_start_x), int(y[1] - (y[1] - y[0]) * text_start_y)]
+        draw.text(text_start, text.get("0", ""), font=font1, fill=text_color)
+        text_start = [int(x[0] + 1.5 * (x[1] - x[0]) * text_start_x), int(y[1] - 0.60 * (y[1] - y[0]) * text_start_y)]
+        draw.text(text_start, text.get("1", ""), font=font2, fill=text_color)
+        text_start = [int(x[0] + 1.5 * (x[1] - x[0]) * text_start_x), int(y[1] - 0.30 * (y[1] - y[0]) * text_start_y)]
+        draw.text(text_start, text.get("2", ""), font=font2, fill=text_color)
+        image = np.array(image)
 
     return image
 

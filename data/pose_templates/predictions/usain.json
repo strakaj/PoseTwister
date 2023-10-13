@@ -104,9 +104,9 @@
         "image_path": "usain.png",
         "keypoint_similarity_threshold": {
             "left_shoulder": 0.85,
-            "left_elbow": 0.90,
+            "left_elbow": 0.85,
             "right_shoulder": 0.85,
-            "right_elbow": 0.90,
+            "right_elbow": 0.85,
             "left_hip": 0.75,
             "right_hip": 0.85
         }

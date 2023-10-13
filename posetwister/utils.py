@@ -1,8 +1,9 @@
-import cv2
-import time
 import json
-import yaml
+import time
+
 import numpy as np
+import yaml
+
 from posetwister.representation import Pose, PredictionResult
 
 

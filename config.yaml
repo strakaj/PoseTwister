@@ -10,12 +10,13 @@ save_video: False
 
 # prediction
 prediction_model: "yolov8s" # s - 50fps     m - 28fps
-video_source: 0
+video_source: 2
 camera_resolution: [1080, 1920]
 multi: True
 show_center_box: True
 prediction_pose_names: [
-  'arnold2.json', 'leaonardo.json', 'david.json', 'usain.json', 'muhammad.json', 'mario.json', 'discobol.json', 'freddie.json', 'superman.json', 'jordan.json'
+  'arnold2.json', 'leaonardo.json', 'david.json', 'usain.json', 'muhammad.json', 'mario.json', 'discobol.json', 'freddie.json', 'superman.json', 'jordan.json',
+  'bond.json', 'dab_full.json', 'haaland.json', 'legolas-orcs.json', 'max_vestappen.json', 'navratilova.json', 'patmat.json'
 ]
 
 # objective
@@ -25,6 +26,7 @@ prediction_pose_names: [
 "similarity_threshold": 0.85
 "bot_similarity_threshold": 0.4
 "similarity_smoothing": 0.9
+"name_to_text_file_name": "texts.json"
 
 # predictor
 "number_of_colors": 21
