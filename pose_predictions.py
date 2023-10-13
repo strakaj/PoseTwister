@@ -1,23 +1,10 @@
-import pickle
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import cm
+from posetwister.utils import load_json
 
-
-data_path = 'data.pickle'
-keypoints_names = ["nose","left_eye","right_eye","left_ear","right_ear","left_shoulder",
-                  "right_shoulder","left_elbow","right_elbow","left_wrist","right_wrist",
-                  "left_hip","right_hip","left_knee","right_knee","left_ankle","right_ankle"]
-keypoints_ids = {}
-for i, name in enumerate(keypoints_names):
-    keypoints_ids[name] = i
-
-keypoints_colors = [plt.cm.tab20((i)/len(keypoints_names)) for i in range(len(keypoints_names))]
-
-with open(data_path, 'rb') as f:
-    data = pickle.load(f)
-
-reference_keypoints = data[0]['keypoints']
+keypoints_names = ["nose", "left_eye", "right_eye", "left_ear", "right_ear", "left_shoulder",
+                   "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist",
+                   "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle"]
+keypoints_ids = {n: i for i, n in enumerate(keypoints_names)}
 
 
 def angle(vect1, vect2):
@@ -71,19 +58,18 @@ def compute_similarity(keypoints, reference_keypoints):
     return np.sum(np.abs([n - m for (n, m) in zip(ref_angles, cand_angles)]))
 
 
+ref_pose0 = load_json("/home/strakajk/MLProjects/PoseTwister/data/ref_poses/t_pose-0.json")
+ref_pose1 = load_json("/home/strakajk/MLProjects/PoseTwister/data/ref_poses/t_pose-1.json")
+ref_pose2 = load_json("/home/strakajk/MLProjects/PoseTwister/data/ref_poses/t_pose-2.json")
+keypoints0 = ref_pose0["keypoints"][0]
+keypoints1 = ref_pose1["keypoints"][0]
+keypoints2 = ref_pose2["keypoints"][0]
 
-for d in data:
-    image = d["image"]
-    keypoints = d["keypoints"]
-    mask = d["mask"]
+similarity = compute_similarity(keypoints0, keypoints1)
+print(similarity)
 
-    similarity = compute_similarity(keypoints, reference_keypoints)
-    print(similarity)
-    fig, ax = plt.subplots(1, 3, figsize=(3*4, 6))
-    ax[0].imshow(image)
-    [ax[0].scatter(x, y, color = keypoints_colors[i], label=keypoints_names[i]) for i, (x,y,_) in enumerate(keypoints)]
-    ax[0].legend(loc="lower left", ncol=np.ceil(len(keypoints_names)/8).astype(int), bbox_to_anchor=(0, 1))
-    ax[1].imshow(image)
-    ax[1].imshow(mask, 'RdYlGn', alpha=0.4)
-    ax[2].imshow(mask)
-    plt.show()
+similarity = compute_similarity(keypoints0, keypoints2)
+print(similarity)
+
+similarity = compute_similarity(keypoints1, keypoints2)
+print(similarity)

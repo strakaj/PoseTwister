@@ -1,11 +1,12 @@
 import os.path
-
-from posetwister.representation import PredictionResult
-from posetwister.comparison import compare_pose_angels
-from typing import Union, List
-from posetwister.utils import representation_form_json, reset_running_variable, exponential_filtration, load_image
 from collections import defaultdict
+from typing import Union, List
+
 import numpy as np
+
+from posetwister.comparison import compare_pose_angels
+from posetwister.representation import PredictionResult
+from posetwister.utils import reset_running_variable, exponential_filtration, load_image
 from posetwister.visualization import KEYPOINT_NAMES
 
 

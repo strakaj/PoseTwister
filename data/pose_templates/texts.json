@@ -1,0 +1,22 @@
+{
+"beatles": {"0": "Beatles",  "1": "Abbey Road album"},
+"bond": {"0": "Pierce Brosnan",  "1": "jako James Bond 1995-2002"},
+"dab_full": {"0": "Dab",  "1": "vliv hudební skupiny Migos"},
+"haaland": {"0": "Erling Haaland",  "1": "Norský fotbalista"},
+"jagr": {"0": "Jaromír Jágr"},
+"legolas-orcs": {"0": "Legolas",  "1": "fiktivní postava z Pána prstenů od J.R.R. Tolkiena"},
+"matthews": {"0": "Auston Matthews",  "1": "Americký hokejový útočník v NHL"},
+"max_vestappen": {"0": "Max Verstappen",  "1": "mistr světa F1 2021/22"},
+"navratilova": {"0": "Martina Navrátilová",  "1": "bývalá česko-americká", "2": "profesionální tenistka"},
+"patmat": {"0": "Pat a Mat",  "1": "český animovaný televizní seriál ", "2": "o dvou nezručných kutilech"},
+"arnold2": {"0": "Arnold Schwarzenegger", "1": "rakousko-americký sportovec, herec a politik"},
+"leaonardo": {"0": "Vitruviánský muž", "1":  "kresba Leonadrda Da Vinci", "2": "představuje jeho představu o ideálních tělesných proporcích"},
+"david": {"0": "David", "1":  "renesanční sochařské dílo z let 1501–1504,", "2":  "sochaře Michelangela Buonarrotiho"},
+"usain": {"0": "Usain Bolt", "1":  "prvním člověk v historii,", "2": "který dokázal zaběhnout 100m pod hranicí 9,60 sekund"},
+"muhammad": {"0": "Muhammad Ali", "1": "jedna z nejvýznamnějších", "2":  "sportovních osobností 20. století"},
+"mario": {"0": "Mario", "1": "fiktivní postava a protagonista", "2":  "videoherní série Super Mario"},
+"discobol": {"0": "Diskobolos", "1":  "jedna z nejznámějších antických soch,", "2": "vytvořena sochařem Myrónem"},
+"freddie": {"0": "Freddie Mercury", "1":  "britský zpěvák a skladatel,", "2":  "člen rockové skupiny Queen"},
+"superman": {"0": "Superman", "1":  "fiktivní postava komiksových příběhů", "2": "vydávaných nakladatelstvím DC Comics"},
+"jordan": {"0": "Michael Jordan", "1":  "bývalý americký profesionální basketbalista,", "2":  "považován za jednoho z nejlepších basketbalistů všech dob"}
+}

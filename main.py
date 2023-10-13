@@ -10,18 +10,12 @@ from posetwister.model import YoloModel
 from posetwister.objective import SessionObjective
 from posetwister.predictors import DefaultVideoPredictor
 from posetwister.representation import Pose
-from posetwister.utils import representation_form_json, exponential_filtration, iou, load_yaml, save_json
+from posetwister.utils import representation_form_json, exponential_filtration, iou, load_yaml, save_json, load_json
 from posetwister.visualization import add_rectangles, add_keypoints, get_parameters, add_masks, get_color_gradient, \
-    add_keypoint
+    add_keypoint, add_text, KEYPOINT_NEIGHBORS
 
 
-KEYPOINT_NEIGHBORS = {5: (6, 7),  # left_shoulder
-                      6: (5, 8),  # right_shoulder
-                      7: (5, 9),  # left_elbow
-                      8: (6, 10),  # right_elbow
-                      11: (5, 13),  # left_hip
-                      12: (6, 14),  # right_hip
-                      }
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser('', add_help=False)
@@ -107,7 +101,7 @@ def crop(image1, image2, bbox):
 
 
 class VideoPredictor(DefaultVideoPredictor):
-    def __init__(self, config, model, objective=None):
+    def __init__(self, config, model, objective=None, name_to_text={}):
         super().__init__(model)
         self.config = config
         self.objective = objective
@@ -122,13 +116,15 @@ class VideoPredictor(DefaultVideoPredictor):
         self.num_colors = config.get("num_colors", 21)
         self.colors = get_color_gradient(self.num_colors,
                                          plot=False,
-                                         key_colors=config.get("key_colors", [[232, 116, 97], [244, 211, 94], [98, 254, 153]]))
+                                         key_colors=config.get("key_colors",
+                                                               [[232, 116, 97], [244, 211, 94], [98, 254, 153]]))
         self.color_thresholds = np.linspace(self.bot_similarity_threshold,
                                             self.top_similarity_threshold - (1 / (self.num_colors - 1)),
                                             self.num_colors)
         self.colors = [self.colors[0], *self.colors]
         self.color_thresholds = [0.0, *self.color_thresholds]
 
+        self.name_to_text = name_to_text
 
         # get variables for debugging
         self.debug_values = config.get("debug_numbers_in_image", False)
@@ -317,6 +313,10 @@ class VideoPredictor(DefaultVideoPredictor):
                 similarity, correct_in_row, perpendicular_vectors = objective(prediction)
                 # perpendicular_vectors = self.prepare_perpendicular_vectors(prediction, perpendicular_vectors)
 
+                if self.key_pressed is not None and self.key_pressed == "c":
+                    self.key_pressed = None
+                    objective.complete_pose()
+
                 # do something if pose was completed
                 if objective.pose_completed:
                     # stop recording video
@@ -341,6 +341,10 @@ class VideoPredictor(DefaultVideoPredictor):
                             frame = add_keypoint(frame, kp, correct_in_row[kp_id], color)
                             pose_image = add_keypoint(pose_image, pose_target.pose.keypoints[0][kp_id], 1,
                                                       self.colors[-1])
+                        pose_name = objective.pose_name[objective.progress]
+                        text = self.name_to_text.get(pose_name, None)
+                        if text is not None:
+                            pose_image = add_text(pose_image, text)
                         target_shape = frame.shape[:2]
                         # frame = crop(frame, pose_image, prediction.pose.boxes[0])
                         combined_image = combine_images(frame, pose_image,
@@ -371,8 +375,10 @@ class VideoPredictor(DefaultVideoPredictor):
                             idx = np.max([i for i, t in enumerate(self.color_thresholds) if t < similarity[kp_id]])
                             color = self.colors[idx]
                             # frame = add_direction(frame, kp, perpendicular_vectors[vc_id], color)
-                            neighbors = [prediction.pose.keypoints[0][neighbor] for neighbor in KEYPOINT_NEIGHBORS[kp_id]]
-                            frame = add_keypoint(frame, kp, correct_in_row[kp_id], color, neighbors=neighbors, sim=similarity[kp_id])
+                            neighbors = [prediction.pose.keypoints[0][neighbor] for neighbor in
+                                         KEYPOINT_NEIGHBORS[kp_id]]
+                            frame = add_keypoint(frame, kp, correct_in_row[kp_id], color, neighbors=neighbors,
+                                                 sim=similarity[kp_id])
                         if self.debug_values:
                             frame = self.add_similarity(frame, sim_text)
 
@@ -420,10 +426,14 @@ if __name__ == "__main__":
     # load reference poses and corresponding images
     prediction_pose_names = config.get("prediction_pose_names", [])
     if prediction_pose_names:
-        ref_poses_representation_paths = [os.path.join(config["ref_pose_output_path"], name) for name in prediction_pose_names]
+        ref_poses_representation_paths = [os.path.join(config["ref_pose_output_path"], name) for name in
+                                          prediction_pose_names]
     else:
         ref_poses_representation_paths = glob(os.path.join(config["ref_pose_output_path"], "*.json"))
     ref_poses_representation = [representation_form_json(p) for p in ref_poses_representation_paths]
+
+    name_to_text = load_json(
+        os.path.join(os.path.dirname(config["ref_pose_input_path"]), config["name_to_text_file_name"]))
 
     # create objective and predictor
     objective = SessionObjective(
@@ -435,6 +445,7 @@ if __name__ == "__main__":
         config,
         yolo_model,
         objective,
+        name_to_text=name_to_text
     )
 
     video_predictor.predict(config["video_source"], camera_resolution=config["camera_resolution"],

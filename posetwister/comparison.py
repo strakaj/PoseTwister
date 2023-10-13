@@ -2,7 +2,9 @@ from posetwister.representation import Pose
 import numpy as np
 from posetwister.visualization import KEYPOINT_NAMES
 import math
+
 kp_name_to_id = {n: i for i, n in enumerate(KEYPOINT_NAMES)}
+
 
 def perpendicular(a):
     b = np.empty_like(a)
@@ -57,10 +59,10 @@ def compare_pose_angels(pose1: Pose, pose2: Pose, get_angle_scores: bool = False
         # create perpendicular vectors
         sign = angle / np.abs(angle)
         ortho_prd_kp = perpendicular(prd_kp)
-        #ortho_prd_kp = ortho_prd_kp / np.linalg.norm(ortho_prd_kp)  # normalize
-        #print(ortho_prd_kp)
-        ortho_prd_kp *= sign                                        # adjust direction
-        ortho_prd_kp *= np.abs(angle) / 180                         # resize
+        # ortho_prd_kp = ortho_prd_kp / np.linalg.norm(ortho_prd_kp)  # normalize
+        # print(ortho_prd_kp)
+        ortho_prd_kp *= sign  # adjust direction
+        ortho_prd_kp *= np.abs(angle) / 180  # resize
         ortho_prd_kp = ortho_prd_kp + np.array(prd_pose[end_kp_id])  # move vector
         perpendicular_vectors[end_kp_id] = ortho_prd_kp
 

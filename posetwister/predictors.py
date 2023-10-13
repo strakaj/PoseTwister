@@ -10,7 +10,6 @@ from pynput import keyboard
 from posetwister.representation import PredictionResult
 from posetwister.utils import load_image, load_video, WebCamMulti
 
-from posetwister.utils import reshape_image
 
 class DefaultImagePredictor:
     def __init__(self, model):
