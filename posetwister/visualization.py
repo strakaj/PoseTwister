@@ -132,28 +132,45 @@ def add_rectangles(image, prediction_result, color=None, add_conf=False):
     return image
 
 
-def add_keypoints(image, prediction_result):
-    keypoints = prediction_result.keypoints
+def add_keypoints(image, prediction_result, same_color=False):
+    keypoints = prediction_result.keypoints[:-1,:,:]
     param = get_parameters(image.shape)
 
-    colors = np.array([plt.cm.tab20(i / len(KEYPOINT_NAMES)) for i in range(len(KEYPOINT_NAMES))]) * 255
+    head_kps = [0, 1, 2, 3, 4]
+    arms_kps = [5, 6, 7, 8, 9, 10]
+    legs_kps = [11, 12, 13, 14, 15, 16, 17]
+
+    if same_color:
+        colors = np.array([plt.cm.tab10(i / len(KEYPOINT_NAMES)) for i in range(len(KEYPOINT_NAMES))]) * 255
+    else:
+        colors = np.array([plt.cm.tab20(i / len(KEYPOINT_NAMES)) for i in range(len(KEYPOINT_NAMES))]) * 255
 
     for i, kps in enumerate(keypoints):
         for j, kp in enumerate(kps):
             x, y = np.round(kp).astype(int)
-            image = cv2.circle(image, (x, y), radius=param["radius"], color=colors[j], thickness=-1)
+            if same_color:
+                if j in head_kps:
+                    image = cv2.circle(image, (x, y), radius=param["radius"]-4, color=colors[0], thickness=-1)
+                elif j in arms_kps:
+                    image = cv2.circle(image, (x, y), radius=param["radius"]-4, color=colors[2], thickness=-1)
+                elif j in legs_kps:
+                    image = cv2.circle(image, (x, y), radius=param["radius"]-4, color=colors[4], thickness=-1)
+                else:
+                    image = cv2.circle(image, (x, y), radius=param["radius"]-4, color=colors[6], thickness=-1)
+            else:
+                image = cv2.circle(image, (x, y), radius=param["radius"]-4, color=colors[j], thickness=-1)
 
     return image
 
 
 def add_poses(image, prediction_result):
-    keypoints = prediction_result.keypoints
+    keypoints = prediction_result.keypoints[:-1,:,:]
     param = get_parameters(image.shape)
 
     colors = np.array([plt.cm.Set1(i / len(keypoints)) for i in range(len(keypoints))]) * 255
 
     pose_lines = [(5, 6), (5, 7), (7, 9), (6, 8), (8, 10), (5, 11), (11, 13), (13, 15),
-                  (6, 12), (12, 14), (14, 16)]
+                  (6, 12), (12, 14), (14, 16), (11, 12), (0, 1), (0, 2), (1, 3), (2, 4), (3, 5), (4, 6)]
 
     for i, kps in enumerate(keypoints):
         for line in pose_lines:

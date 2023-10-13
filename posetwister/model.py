@@ -1,10 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from ultralytics import YOLO
+import cv2
 
 from posetwister.representation import PredictionResult, Pose
 from posetwister.utils import load_image
-from posetwister.visualization import add_rectangles, add_keypoints
+from posetwister.visualization import add_rectangles, add_keypoints, add_poses
 
 
 class YoloModel:
@@ -41,7 +42,7 @@ class YoloModel:
 
 
 if __name__ == "__main__":
-    yolo_model = YoloModel("yolov8n")
+    yolo_model = YoloModel("yolov8x")
     image = [load_image("../data/input/image/car.jpg"),
              load_image("../data/input/image/t_pose-0.jpg"),
              load_image("../data/input/image/ymca-0.jpg")]
@@ -52,5 +53,7 @@ if __name__ == "__main__":
         if prd.pose.keypoints is not None:
             img = add_rectangles(img, prd.pose, add_conf=False)
             img = add_keypoints(img, prd.pose)
+            # img = add_poses(img, prd.pose)
         plt.imshow(img)
+        plt.axis('off')
         plt.show()
