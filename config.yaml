@@ -10,7 +10,7 @@ save_video: False
 
 # prediction
 prediction_model: "yolov8s" # s - 50fps     m - 28fps
-video_source: 2
+video_source: 0
 camera_resolution: [1080, 1920]
 multi: True
 show_center_box: True

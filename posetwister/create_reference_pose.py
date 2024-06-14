@@ -5,11 +5,12 @@ from glob import glob
 import cv2
 import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from posetwister.model import YoloModel
 from posetwister.predictors import DefaultImagePredictor
 from posetwister.utils import save_json, load_image
-from posetwister.visualization import add_keypoints
+from posetwister.visualization import get_parameters, KEYPOINT_NAMES
 
 
 def get_args_parser():
@@ -19,6 +20,15 @@ def get_args_parser():
 
     return parser
 
+def add_keypoints(image, prediction_result):
+    keypoints = prediction_result.keypoints
+    param = get_parameters(image.shape)
+    colors = np.array([plt.cm.tab20(i / len(KEYPOINT_NAMES)) for i in range(len(KEYPOINT_NAMES))]) * 255
+    for i, kps in enumerate(keypoints):
+        for j, kp in enumerate(kps):
+            x, y = np.round(kp).astype(int)
+            image = cv2.circle(image, (x, y), radius=param["radius"], color=colors[j], thickness=-1)
+    return image
 
 def get_larges(prediction):
     pose = prediction.pose
@@ -77,5 +87,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser('', parents=[get_args_parser()])
     args = parser.parse_args()
 
-    paths = glob(os.path.join(args.image_path[0], "*"))
+    if len(args.image_path) == 1:
+        if os.path.isfile(args.image_path[0]):
+            paths = args.image_path[0]
+        else:
+            paths = glob(os.path.join(args.image_path[0], "*"))
+    else:
+        paths = args.image_path
+    print(paths)
     create_representation(paths, args.output_path, model_name="yolov8x")
